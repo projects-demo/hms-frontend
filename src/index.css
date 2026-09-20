@@ -1,0 +1,94 @@
+@import "tailwindcss";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/inter/800.css";
+@import "@fontsource/jetbrains-mono/500.css";
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Primary - deep clinical teal */
+  --color-primary-50: #eef7f6;
+  --color-primary-100: #d3ebe8;
+  --color-primary-200: #a7d7d1;
+  --color-primary-300: #71bcb3;
+  --color-primary-400: #3f9c92;
+  --color-primary-500: #227d74;
+  --color-primary-600: #14635b;
+  --color-primary-700: #124f49;
+  --color-primary-800: #123f3b;
+  --color-primary-900: #103532;
+  --color-primary-950: #061c1a;
+
+  /* Accent - warm coral (continuity with the legacy app's orange brand) */
+  --color-accent-50: #fff2ed;
+  --color-accent-100: #ffe1d3;
+  --color-accent-200: #ffc0a7;
+  --color-accent-300: #ff9670;
+  --color-accent-400: #fb6f45;
+  --color-accent-500: #f0532a;
+  --color-accent-600: #dd3f1c;
+  --color-accent-700: #b83019;
+  --color-accent-800: #93291b;
+  --color-accent-900: #78261a;
+
+  /* Warm neutrals */
+  --color-canvas: #faf9f6;
+  --color-surface: #ffffff;
+  --color-border: #e6e2da;
+  --color-border-strong: #d3ccc0;
+
+  --color-ink-900: #211d17;
+  --color-ink-700: #4a443a;
+  --color-ink-500: #7c7568;
+  --color-ink-400: #9c9484;
+
+  /* Semantic */
+  --color-success-50: #eefaf1;
+  --color-success-500: #1a9550;
+  --color-success-600: #147a41;
+  --color-warning-50: #fef8ec;
+  --color-warning-500: #c9860f;
+  --color-warning-600: #a56c0a;
+  --color-danger-50: #fdeeee;
+  --color-danger-500: #d13c3c;
+  --color-danger-600: #b32e2e;
+  --color-info-50: #eef4fd;
+  --color-info-500: #3568c9;
+  --color-info-600: #2a53a3;
+}
+
+@layer base {
+  :root {
+    /* Hospital-admin-overridable brand touchpoints (logo box, header banner) -
+       deliberately separate from --color-primary-* / --color-accent-* so a
+       custom hospital color can never break contrast on buttons/badges/etc.
+       BrandingContext sets these via JS after loading /api/v1/branding. */
+    --hms-brand-primary: var(--color-primary-600);
+    --hms-brand-accent: var(--color-accent-500);
+  }
+  * {
+    border-color: var(--color-border);
+  }
+  html, body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink-900);
+  }
+  body {
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background-color: var(--color-accent-200);
+  }
+}
+
+/* Updated to Tailwind v4 @utility directive syntax */
+@utility scrollbar-thin {
+  &::-webkit-scrollbar { width: 8px; height: 8px; }
+  &::-webkit-scrollbar-thumb { background-color: var(--color-border-strong); border-radius: 8px; }
+  &::-webkit-scrollbar-track { background-color: transparent; }
+}

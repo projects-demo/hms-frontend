@@ -51,7 +51,24 @@ export const apiClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
+// Cleaned request interceptor mapping tenantCode securely
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  // 1. DYNAMIC TENANT SWITCHING: Inject the X-Tenant-ID header
+  if (config.url?.includes('/auth/login') && config.data?.tenantCode) {
+    config.headers.set('X-Tenant-ID', config.data.tenantCode.trim())
+  } else if (config.url?.includes('/platform/auth/login')) {
+    config.headers.set('X-Tenant-ID', 'hms_master')
+  } else {
+    // For all subsequent dashboard API calls
+    const currentSession = authStorage.getSession()
+    if (currentSession && currentSession.tenantCode) {
+      config.headers.set('X-Tenant-ID', currentSession.tenantCode)
+    } else if (currentSession?.platform || config.url?.includes('/api/v1/platform')) {
+      config.headers.set('X-Tenant-ID', 'hms_master')
+    }
+  }
+
+  // 2. Token Injection
   const token = authStorage.getAccessToken()
   if (token) {
     config.headers.set('Authorization', `Bearer ${token}`)

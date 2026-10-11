@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Stethoscope, CalendarDays, UserX } from 'lucide-react'
+import { Plus, Stethoscope, CalendarDays, UserX, Pencil } from 'lucide-react'
 import { PageHeader } from '@/components/common/PageHeader'
 import { SearchInput } from '@/components/common/SearchInput'
 import { Pagination } from '@/components/common/Pagination'
@@ -35,6 +35,7 @@ export default function DoctorsPage() {
   const [query, setQuery] = useState('')
   const debouncedQuery = useDebounce(query)
   const [createOpen, setCreateOpen] = useState(false)
+  const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null)
   const [departments, setDepartments] = useState<Department[]>([])
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
@@ -62,22 +63,54 @@ export default function DoctorsPage() {
     setForm(f => ({ ...f, [key]: value }))
   }
 
-  async function handleCreate() {
-    if (!form.username || !form.password || !form.fullName || !form.departmentId || !form.specialization || !form.licenseNumber) {
+  function openCreate() {
+    setEditingDoctor(null)
+    setForm(EMPTY_FORM)
+    setCreateOpen(true)
+  }
+
+  function openEdit(doctor: Doctor) {
+    setEditingDoctor(doctor)
+    setForm({
+      ...EMPTY_FORM,
+      fullName: doctor.fullName,
+      departmentId: String(doctor.departmentId),
+      specialization: doctor.specialization,
+      licenseNumber: doctor.licenseNumber,
+      qualifications: doctor.qualifications ?? '',
+      experienceYears: String(doctor.experienceYears),
+      consultationFee: String(doctor.consultationFee),
+      maxPatientsPerDay: String(doctor.maxPatientsPerDay),
+      officeRoomNumber: doctor.officeRoomNumber ?? '',
+    })
+    setCreateOpen(true)
+  }
+
+  async function handleSave() {
+    if ((!editingDoctor && (!form.username || !form.password)) || !form.fullName || !form.departmentId || !form.specialization || !form.licenseNumber) {
       toast.error('Please fill in all required fields'); return
     }
     setSaving(true)
     try {
-      await doctorsApi.create({
-        username: form.username, email: form.email || undefined, password: form.password,
+      const payload = {
+        username: editingDoctor ? undefined : form.username,
+        email: form.email || undefined,
+        password: editingDoctor ? undefined : form.password,
         fullName: form.fullName, phone: form.phone || undefined,
         departmentId: Number(form.departmentId), specialization: form.specialization,
         licenseNumber: form.licenseNumber, qualifications: form.qualifications || undefined,
         experienceYears: Number(form.experienceYears), consultationFee: Number(form.consultationFee),
         maxPatientsPerDay: Number(form.maxPatientsPerDay), officeRoomNumber: form.officeRoomNumber || undefined,
-      })
-      toast.success('Doctor onboarded')
+      }
+      if (editingDoctor) {
+        await doctorsApi.update(editingDoctor.id, payload)
+        toast.success('Doctor updated')
+      } else {
+        await doctorsApi.create(payload)
+        toast.success('Doctor onboarded')
+      }
       setCreateOpen(false)
+      setEditingDoctor(null)
       setForm(EMPTY_FORM)
       reload()
     } catch (err) {
@@ -107,7 +140,7 @@ export default function DoctorsPage() {
       <PageHeader
         title="Doctors"
         description="Onboard doctors and manage their clinical profiles."
-        actions={isAdmin ? <Button onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4" /> Onboard doctor</Button> : undefined}
+        actions={isAdmin ? <Button onClick={openCreate}><Plus className="h-4 w-4" /> Onboard doctor</Button> : undefined}
       />
 
       <Card>
@@ -118,7 +151,7 @@ export default function DoctorsPage() {
         {loading ? <PageSpinner /> : !data || data.content.length === 0 ? (
           <EmptyState icon={<Stethoscope className="h-10 w-10" />} title="No doctors yet"
             description="Onboard your first doctor - this creates their login and clinical profile together."
-            action={isAdmin ? <Button onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4" /> Onboard doctor</Button> : undefined}
+            action={isAdmin ? <Button onClick={openCreate}><Plus className="h-4 w-4" /> Onboard doctor</Button> : undefined}
           />
         ) : (
           <>
@@ -138,6 +171,11 @@ export default function DoctorsPage() {
                     <TD><StatusBadge status={d.availabilityStatus} /> {!d.active && <Badge variant="danger">Inactive</Badge>}</TD>
                     <TD className="text-right">
                       <div className="flex justify-end gap-2">
+                        {isAdmin && (
+                          <Button size="sm" variant="outline" onClick={() => openEdit(d)}>
+                            <Pencil className="h-3.5 w-3.5" /> Edit
+                          </Button>
+                        )}
                         {canManageAvailability && (
                           <Button size="sm" variant="outline" onClick={() => setAvailabilityDoctor(d)}>
                             <CalendarDays className="h-3.5 w-3.5" /> Availability
@@ -161,9 +199,9 @@ export default function DoctorsPage() {
 
       {isAdmin && (
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogContent title="Onboard a new doctor" description="Creates the doctor's login and clinical profile together." className="max-w-2xl">
+          <DialogContent title={editingDoctor ? 'Edit doctor' : 'Onboard a new doctor'} description={editingDoctor ? 'Update the doctor’s name and clinical profile.' : "Creates the doctor's login and clinical profile together."} className="max-w-2xl">
             <div className="space-y-5">
-              <section>
+              {!editingDoctor && <section>
                 <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-2">Login</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div><Label>Username *</Label><Input value={form.username} onChange={(e) => set('username', e.target.value)} /></div>
@@ -172,7 +210,11 @@ export default function DoctorsPage() {
                   <div><Label>Phone</Label><Input value={form.phone} onChange={(e) => set('phone', e.target.value)} /></div>
                   <div className="col-span-2"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} /></div>
                 </div>
-              </section>
+              </section>}
+              {editingDoctor && <section>
+                <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-2">Doctor details</p>
+                <div><Label>Full name *</Label><Input value={form.fullName} onChange={(e) => set('fullName', e.target.value)} /></div>
+              </section>}
               <section>
                 <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-2">Clinical profile</p>
                 <div className="grid grid-cols-2 gap-3">
@@ -192,8 +234,8 @@ export default function DoctorsPage() {
                 </div>
               </section>
               <div className="flex justify-end gap-2 pt-1">
-                <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-                <Button onClick={handleCreate} loading={saving}>Onboard doctor</Button>
+                <Button variant="outline" onClick={() => { setCreateOpen(false); setEditingDoctor(null) }}>Cancel</Button>
+                <Button onClick={handleSave} loading={saving}>{editingDoctor ? 'Save changes' : 'Onboard doctor'}</Button>
               </div>
             </div>
           </DialogContent>

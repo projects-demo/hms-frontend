@@ -60,6 +60,7 @@ export interface Patient {
   lastName: string
   dob: string | null
   age: number | null
+  ageYears: number | null
   gender: 'MALE' | 'FEMALE' | 'OTHER'
   primaryPhone: string
   secondaryPhone: string | null
@@ -97,7 +98,9 @@ export interface Appointment {
   appointmentCode: string
   patientId: number
   doctorId: number
+  doctorName: string | null
   slotId: number | null
+  queueNumber: number | null
   appointmentDate: string
   appointmentType: 'NEW' | 'FOLLOWUP'
   status: AppointmentStatus
@@ -200,12 +203,22 @@ export interface ChargeMaster {
   code: string
   name: string
   defaultPrice: number
+  applicableDoctorId: number | null
   active: boolean
 }
 
 export interface ChargeType {
   id: number
   name: string
+  code: string
+  active: boolean
+}
+
+export interface ChargeMasterSummary {
+  totalCharges: number
+  activeCharges: number
+  inactiveCharges: number
+  chargeTypes: number
 }
 
 export interface Bill {
@@ -218,12 +231,35 @@ export interface Bill {
   status: BillStatus
   subtotalAmount: number
   discountAmount: number
+  discountMasterId: number | null
+  discountPercentage: number | null
   taxAmount: number
   totalAmount: number
   paidAmount: number
   balanceAmount: number
   finalizedAt: string | null
   items: { id: number; description: string; quantity: number; unitPrice: number; amount: number }[]
+}
+
+export interface DiscountMaster {
+  id: number
+  name: string
+  percentage: number
+  active: boolean
+}
+
+export interface BillingAuditLog {
+  id: number
+  action: string
+  entityType: string
+  entityId: number | null
+  billId: number | null
+  actorUserId: number
+  actorUsername: string
+  actorName: string
+  actorRole: string
+  details: string
+  createdAt: string
 }
 
 export interface Drug {

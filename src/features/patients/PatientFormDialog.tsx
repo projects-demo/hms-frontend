@@ -17,7 +17,7 @@ interface Props {
 }
 
 const EMPTY = {
-  firstName: '', lastName: '', dob: '', gender: 'MALE' as 'MALE' | 'FEMALE' | 'OTHER',
+  firstName: '', lastName: '', dob: '', ageYears: '', gender: 'MALE' as 'MALE' | 'FEMALE' | 'OTHER',
   primaryPhone: '', secondaryPhone: '', email: '',
   emergencyName: '', emergencyContact: '',
   street: '', city: '', state: '', country: 'India', zipCode: '',
@@ -33,6 +33,7 @@ export function PatientFormDialog({ open, onOpenChange, onSaved, patient }: Prop
     if (open) {
       setForm(patient ? {
         firstName: patient.firstName, lastName: patient.lastName, dob: patient.dob ?? '',
+        ageYears: patient.age != null ? String(patient.age) : '',
         gender: patient.gender, primaryPhone: patient.primaryPhone, secondaryPhone: patient.secondaryPhone ?? '',
         email: patient.email ?? '', emergencyName: patient.emergencyName ?? '', emergencyContact: patient.emergencyContact ?? '',
         street: patient.street ?? '', city: patient.city ?? '', state: patient.state ?? '', country: patient.country ?? 'India',
@@ -50,9 +51,13 @@ export function PatientFormDialog({ open, onOpenChange, onSaved, patient }: Prop
       toast.error('First name, last name and phone are required')
       return
     }
+    if (!form.ageYears || Number(form.ageYears) <= 0) {
+      toast.error('Age is required')
+      return
+    }
     setSaving(true)
     try {
-      const payload = { ...form, dob: form.dob || undefined }
+      const payload = { ...form, dob: form.dob || undefined, ageYears: Number(form.ageYears) }
       if (isEdit && patient) {
         await patientsApi.update(patient.id, payload as never)
         toast.success('Patient updated')
@@ -77,6 +82,7 @@ export function PatientFormDialog({ open, onOpenChange, onSaved, patient }: Prop
             <div className="grid grid-cols-2 gap-3">
               <div><Label>First name *</Label><Input value={form.firstName} onChange={(e) => set('firstName', e.target.value)} /></div>
               <div><Label>Last name *</Label><Input value={form.lastName} onChange={(e) => set('lastName', e.target.value)} /></div>
+              <div><Label>Age *</Label><Input type="number" min={0} max={130} value={form.ageYears} onChange={(e) => set('ageYears', e.target.value)} /></div>
               <div><Label>Date of birth</Label><Input type="date" value={form.dob} onChange={(e) => set('dob', e.target.value)} /></div>
               <div>
                 <Label>Gender</Label>

@@ -47,13 +47,14 @@ export default function OpdPage() {
             description="Patients appear here once they're checked in from the Appointments page." />
         ) : (
           <Table>
-            <THead><TR><TH>Code</TH><TH>Type</TH><TH>Fee</TH><TH>Status</TH><TH></TH></TR></THead>
+            <THead><TR><TH>Code</TH><TH>Type</TH><TH>Fee</TH><TH>Payment</TH><TH>Status</TH><TH></TH></TR></THead>
             <TBody>
               {data.content.map(a => (
                 <TR key={a.id}>
                   <TD className="font-mono text-xs">{a.appointmentCode}</TD>
                   <TD>{a.appointmentType}</TD>
                   <TD>{a.freeVisit ? 'Free' : formatCurrency(a.feeAmount)}</TD>
+                  <TD><StatusBadge status={a.paid || a.freeVisit ? 'PAID' : 'PENDING'} /></TD>
                   <TD><StatusBadge status={a.status} /></TD>
                   <TD className="text-right">
                     {canStartConsultation && <Button size="sm" onClick={() => openConsultation(a)}>Start consultation</Button>}

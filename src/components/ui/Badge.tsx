@@ -28,7 +28,7 @@ const STATUS_VARIANTS: Record<string, BadgeProps['variant']> = {
   ACTIVE: 'success', AVAILABLE: 'success', COMPLETED: 'success', PAID: 'success', FINALIZED: 'primary',
   DISCHARGED: 'neutral', SCHEDULED: 'info', CHECKED_IN: 'info', IN_CONSULTATION: 'warning',
   BOOKED: 'warning', OCCUPIED: 'warning', ADMITTED: 'warning', DRAFT: 'neutral',
-  CANCELLED: 'danger', NO_SHOW: 'danger', DEACTIVATED: 'danger', SUSPENDED: 'danger',
+  CANCELLED: 'danger', NO_SHOW: 'danger', DEACTIVATED: 'danger', SUSPENDED: 'danger', PENDING: 'warning',
   ON_LEAVE: 'warning', INACTIVE: 'neutral', MAINTENANCE: 'neutral', BLOCKED: 'neutral',
   PROVISIONING: 'info', TRANSFERRED: 'neutral', DECEASED: 'danger',
 }

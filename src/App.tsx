@@ -20,6 +20,7 @@ import OpdPage from '@/features/opd/OpdPage'
 import IpdPage from '@/features/ipd/IpdPage'
 import BillingPage from '@/features/billing/BillingPage'
 import BillDetailPage from '@/features/billing/BillDetailPage'
+import ChargeMasterPage from '@/features/billing/ChargeMasterPage'
 import PharmacyPage from '@/features/pharmacy/PharmacyPage'
 import BrandingSettingsPage from '@/features/branding/BrandingSettingsPage'
 
@@ -50,6 +51,7 @@ export default function App() {
               <Route path="/ipd" element={<RequireRole allow={ROLE_GROUPS.IPD_ADMIT}><IpdPage /></RequireRole>} />
               <Route path="/billing" element={<RequireRole allow={ROLE_GROUPS.BILLING}><BillingPage /></RequireRole>} />
               <Route path="/billing/:id" element={<RequireRole allow={ROLE_GROUPS.BILLING}><BillDetailPage /></RequireRole>} />
+              <Route path="/billing/charge-master" element={<RequireRole allow={ROLE_GROUPS.ADMIN_ONLY}><ChargeMasterPage /></RequireRole>} />
               <Route path="/pharmacy" element={<RequireRole allow={ROLE_GROUPS.PHARMACY}><PharmacyPage /></RequireRole>} />
               <Route path="/reports" element={<RequireRole allow={ROLE_GROUPS.ANALYTICS}><ReportsPage /></RequireRole>} />
               <Route path="/settings/branding" element={<RequireRole allow={ROLE_GROUPS.ADMIN_ONLY}><BrandingSettingsPage /></RequireRole>} />

@@ -11,10 +11,11 @@ import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { Select, SelectItem } from '@/components/ui/Select'
 import { billingApi } from '@/lib/services/billing'
-import type { Bill } from '@/types/domain'
+import type { Bill, DiscountMaster } from '@/types/domain'
 import { formatCurrency } from '@/lib/utils'
 import { apiErrorMessage } from '@/lib/api-client'
 import { toast } from 'sonner'
+import { useAuth } from '@/features/auth/AuthContext'
 
 export default function BillDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -24,7 +25,8 @@ export default function BillDetailPage() {
   const [loading, setLoading] = useState(true)
 
   const [finalizeOpen, setFinalizeOpen] = useState(false)
-  const [discount, setDiscount] = useState('0')
+  const [discountMasterId, setDiscountMasterId] = useState('')
+  const [discounts, setDiscounts] = useState<DiscountMaster[]>([])
   const [tax, setTax] = useState('0')
 
   const [receiptOpen, setReceiptOpen] = useState(false)
@@ -36,6 +38,8 @@ export default function BillDetailPage() {
   const [refundReason, setRefundReason] = useState('')
 
   const [saving, setSaving] = useState(false)
+  const { session } = useAuth()
+  const isAdmin = session?.role === 'HOSPITAL_ADMIN'
 
   function load() {
     setLoading(true)
@@ -46,7 +50,7 @@ export default function BillDetailPage() {
   async function handleFinalize() {
     setSaving(true)
     try {
-      await billingApi.bills.finalize(billId, Number(discount) || 0, Number(tax) || 0)
+      await billingApi.bills.finalize(billId, isAdmin && discountMasterId && discountMasterId !== 'none' ? Number(discountMasterId) : undefined, Number(tax) || 0)
       toast.success('Bill finalized')
       setFinalizeOpen(false)
       load()
@@ -84,6 +88,20 @@ export default function BillDetailPage() {
     } catch (err) { toast.error(apiErrorMessage(err)) } finally { setSaving(false) }
   }
 
+  async function openFinalize() {
+    setDiscountMasterId('')
+    setTax('0')
+    if (isAdmin) {
+      try {
+        setDiscounts(await billingApi.discounts.list())
+      } catch (err) {
+        toast.error(apiErrorMessage(err))
+        return
+      }
+    }
+    setFinalizeOpen(true)
+  }
+
   if (loading) return <PageSpinner />
   if (!bill) return null
 
@@ -102,7 +120,7 @@ export default function BillDetailPage() {
           <div className="flex gap-2">
             {bill.status === 'DRAFT' && (
               <>
-                <Button size="sm" onClick={() => setFinalizeOpen(true)}><CheckCircle2 className="h-3.5 w-3.5" /> Finalize</Button>
+                <Button size="sm" onClick={openFinalize}><CheckCircle2 className="h-3.5 w-3.5" /> Finalize</Button>
                 <Button size="sm" variant="outline" onClick={handleCancel} loading={saving}><Ban className="h-3.5 w-3.5" /> Cancel</Button>
               </>
             )}
@@ -135,13 +153,41 @@ export default function BillDetailPage() {
               ))}
             </TBody>
           </Table>
+          <div className="ml-auto mt-4 max-w-sm space-y-2 border-t border-border pt-3 text-sm">
+            <div className="flex justify-between"><span className="text-ink-500">Subtotal</span><span>{formatCurrency(bill.subtotalAmount)}</span></div>
+            {bill.discountAmount > 0 && (
+              <div className="flex justify-between text-success-600">
+                <span>Discount{bill.discountPercentage != null ? ` (${bill.discountPercentage}%)` : ''}</span>
+                <span>− {formatCurrency(bill.discountAmount)}</span>
+              </div>
+            )}
+            {bill.taxAmount > 0 && <div className="flex justify-between"><span className="text-ink-500">Tax</span><span>{formatCurrency(bill.taxAmount)}</span></div>}
+            <div className="flex justify-between border-t border-border pt-2 font-semibold"><span>Total</span><span>{formatCurrency(bill.totalAmount)}</span></div>
+          </div>
         </CardContent>
       </Card>
 
       <Dialog open={finalizeOpen} onOpenChange={setFinalizeOpen}>
-        <DialogContent title="Finalize bill" description="Apply discount/tax and lock the line items for payment.">
+        <DialogContent title="Finalize bill" description="Apply an authorized discount and tax, then lock the line items for payment.">
           <div className="space-y-3">
-            <div><Label>Discount amount (₹)</Label><Input type="number" value={discount} onChange={(e) => setDiscount(e.target.value)} /></div>
+            {isAdmin && (
+              <div>
+                <Label>Configured discount</Label>
+                <Select value={discountMasterId} onValueChange={setDiscountMasterId} placeholder="No discount">
+                  <SelectItem value="none">No discount</SelectItem>
+                  {discounts.map(discountOption => (
+                    <SelectItem key={discountOption.id} value={String(discountOption.id)}>
+                      {discountOption.name} — {discountOption.percentage}%
+                    </SelectItem>
+                  ))}
+                </Select>
+                {discountMasterId && discountMasterId !== 'none' && (
+                  <p className="mt-1 text-xs text-success-600">
+                    Discount: {formatCurrency(bill.subtotalAmount * (discounts.find(option => String(option.id) === discountMasterId)?.percentage ?? 0) / 100)}
+                  </p>
+                )}
+              </div>
+            )}
             <div><Label>Tax amount (₹)</Label><Input type="number" value={tax} onChange={(e) => setTax(e.target.value)} /></div>
             <div className="flex justify-end gap-2 pt-1">
               <Button variant="outline" onClick={() => setFinalizeOpen(false)}>Cancel</Button>

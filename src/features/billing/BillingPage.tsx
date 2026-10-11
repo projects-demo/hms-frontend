@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Receipt } from 'lucide-react'
+import { Plus, Receipt, Settings2, ScrollText } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { PageHeader } from '@/components/common/PageHeader'
 import { Pagination } from '@/components/common/Pagination'
@@ -15,11 +15,18 @@ import { billingApi } from '@/lib/services/billing'
 import type { BillStatus } from '@/types/domain'
 import { formatCurrency } from '@/lib/utils'
 import { CreateBillDialog } from './CreateBillDialog'
+import { DiscountMasterManagerDialog } from './DiscountMasterManagerDialog'
+import { BillingAuditDialog } from './BillingAuditDialog'
+import { useAuth } from '@/features/auth/AuthContext'
 
 export default function BillingPage() {
   const [status, setStatus] = useState('ALL')
   const [createOpen, setCreateOpen] = useState(false)
+  const [manageDiscountsOpen, setManageDiscountsOpen] = useState(false)
+  const [auditOpen, setAuditOpen] = useState(false)
   const navigate = useNavigate()
+  const { session } = useAuth()
+  const isAdmin = session?.role === 'HOSPITAL_ADMIN'
 
   const { data, loading, page, setPage } = usePaginated(
     (page, size) => billingApi.bills.search({ status: status === 'ALL' ? undefined : (status as BillStatus), page, size }),
@@ -31,7 +38,12 @@ export default function BillingPage() {
       <PageHeader
         title="Billing"
         description="Create, finalize and collect payment on patient bills."
-        actions={<Button onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4" /> Create bill</Button>}
+        actions={<div className="flex gap-2">
+          {isAdmin && <Button variant="outline" onClick={() => navigate('/billing/charge-master')}><Settings2 className="h-4 w-4" /> Standard items</Button>}
+          {isAdmin && <Button variant="outline" onClick={() => setManageDiscountsOpen(true)}><Settings2 className="h-4 w-4" /> Discounts</Button>}
+          {isAdmin && <Button variant="outline" onClick={() => setAuditOpen(true)}><ScrollText className="h-4 w-4" /> Audit trail</Button>}
+          <Button onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4" /> Create bill</Button>
+        </div>}
       />
 
       <Card>
@@ -70,6 +82,8 @@ export default function BillingPage() {
       </Card>
 
       <CreateBillDialog open={createOpen} onOpenChange={setCreateOpen} />
+      {isAdmin && <DiscountMasterManagerDialog open={manageDiscountsOpen} onOpenChange={setManageDiscountsOpen} />}
+      {isAdmin && <BillingAuditDialog open={auditOpen} onOpenChange={setAuditOpen} />}
     </div>
   )
 }

@@ -11,6 +11,7 @@ import { useBranding } from './BrandingContext'
 import type { Branding } from '@/types/domain'
 import { apiErrorMessage } from '@/lib/api-client'
 import { toast } from 'sonner'
+import { FieldError } from '@/components/common/FieldError'
 
 const MAX_LOGO_BYTES = 800 * 1024 // ~800KB raw file - keeps the resulting base64 payload well under 1.5MB
 const DEFAULT_PRIMARY = '#14635B'
@@ -20,6 +21,7 @@ export default function BrandingSettingsPage() {
   const { branding, loading, refresh } = useBranding()
   const [form, setForm] = useState<Branding>(branding)
   const [saving, setSaving] = useState(false)
+  const [colorErrors, setColorErrors] = useState({ primaryColor: '', accentColor: '' })
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { if (!loading) setForm(branding) }, [loading, branding])
@@ -33,6 +35,13 @@ export default function BrandingSettingsPage() {
   }
 
   async function handleSave() {
+    const colorPattern = /^#[0-9A-Fa-f]{6}$/
+    const nextColorErrors = {
+      primaryColor: form.primaryColor && !colorPattern.test(form.primaryColor) ? 'Use a 6-digit hex color such as #14635B.' : '',
+      accentColor: form.accentColor && !colorPattern.test(form.accentColor) ? 'Use a 6-digit hex color such as #FB6F45.' : '',
+    }
+    setColorErrors(nextColorErrors)
+    if (Object.values(nextColorErrors).some(Boolean)) { toast.error('Please correct the highlighted colors'); return }
     setSaving(true)
     try {
       await brandingApi.update(form)
@@ -99,9 +108,11 @@ export default function BrandingSettingsPage() {
                       onChange={(e) => setForm(f => ({ ...f, primaryColor: e.target.value }))}
                       className="h-9 w-12 rounded-md border border-border-strong cursor-pointer"
                     />
-                    <Input value={form.primaryColor || ''} placeholder={DEFAULT_PRIMARY}
-                      onChange={(e) => setForm(f => ({ ...f, primaryColor: e.target.value || null }))} className="font-mono text-xs" />
+                    <Input value={form.primaryColor || ''} placeholder={DEFAULT_PRIMARY} maxLength={7} pattern="#[0-9A-Fa-f]{6}"
+                      aria-invalid={!!colorErrors.primaryColor} error={!!colorErrors.primaryColor}
+                      onChange={(e) => { setForm(f => ({ ...f, primaryColor: e.target.value || null })); setColorErrors(current => ({ ...current, primaryColor: '' })) }} className="font-mono text-xs" />
                   </div>
+                  <FieldError message={colorErrors.primaryColor} />
                 </div>
                 <div>
                   <Label>Accent color</Label>
@@ -112,9 +123,11 @@ export default function BrandingSettingsPage() {
                       onChange={(e) => setForm(f => ({ ...f, accentColor: e.target.value }))}
                       className="h-9 w-12 rounded-md border border-border-strong cursor-pointer"
                     />
-                    <Input value={form.accentColor || ''} placeholder={DEFAULT_ACCENT}
-                      onChange={(e) => setForm(f => ({ ...f, accentColor: e.target.value || null }))} className="font-mono text-xs" />
+                    <Input value={form.accentColor || ''} placeholder={DEFAULT_ACCENT} maxLength={7} pattern="#[0-9A-Fa-f]{6}"
+                      aria-invalid={!!colorErrors.accentColor} error={!!colorErrors.accentColor}
+                      onChange={(e) => { setForm(f => ({ ...f, accentColor: e.target.value || null })); setColorErrors(current => ({ ...current, accentColor: '' })) }} className="font-mono text-xs" />
                   </div>
+                  <FieldError message={colorErrors.accentColor} />
                 </div>
               </div>
               {(form.primaryColor || form.accentColor) && (

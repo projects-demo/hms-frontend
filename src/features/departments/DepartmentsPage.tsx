@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Building2 } from 'lucide-react'
+import { Plus, Building2, Pencil } from 'lucide-react'
 import { PageHeader } from '@/components/common/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/Table'
@@ -17,12 +17,16 @@ import { departmentsApi } from '@/lib/services/departments'
 import { apiErrorMessage } from '@/lib/api-client'
 import { toast } from 'sonner'
 import { useAuth } from '@/features/auth/AuthContext'
+import { FieldError } from '@/components/common/FieldError'
+import type { Department } from '@/types/domain'
 
 export default function DepartmentsPage() {
   const [createOpen, setCreateOpen] = useState(false)
+  const [editingDepartment, setEditingDepartment] = useState<Department | null>(null)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [saving, setSaving] = useState(false)
+  const [nameError, setNameError] = useState('')
 
   const { session } = useAuth()
   const isAdmin = session?.role === 'HOSPITAL_ADMIN'
@@ -34,14 +38,34 @@ export default function DepartmentsPage() {
     [],
   )
 
-  async function handleCreate() {
-    if (!name.trim()) { toast.error('Department name is required'); return }
+  function openCreate() {
+    setEditingDepartment(null)
+    setName('')
+    setDescription('')
+    setNameError('')
+    setCreateOpen(true)
+  }
+
+  function openEdit(department: Department) {
+    setEditingDepartment(department)
+    setName(department.name)
+    setDescription(department.description ?? '')
+    setNameError('')
+    setCreateOpen(true)
+  }
+
+  async function handleSave() {
+    if (!name.trim()) { setNameError('Department name is required.'); toast.error('Please correct the highlighted field'); return }
+    if (name.trim().length > 100) { setNameError('Department name must be 100 characters or fewer.'); return }
     setSaving(true)
     try {
-      await departmentsApi.create({ name: name.trim(), description: description.trim() || undefined })
-      toast.success('Department created')
+      const payload = { name: name.trim(), description: description.trim() || undefined }
+      if (editingDepartment) await departmentsApi.update(editingDepartment.id, payload)
+      else await departmentsApi.create(payload)
+      toast.success(editingDepartment ? 'Department updated' : 'Department created')
       setCreateOpen(false)
-      setName(''); setDescription('')
+      setEditingDepartment(null)
+      setName(''); setDescription(''); setNameError('')
       reload()
     } catch (err) {
       toast.error(apiErrorMessage(err))
@@ -55,25 +79,26 @@ export default function DepartmentsPage() {
       <PageHeader
         title="Departments"
         description="Clinical departments doctors and staff are organized under."
-        actions={isAdmin ? <Button onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4" /> New department</Button> : undefined}
+        actions={isAdmin ? <Button onClick={openCreate}><Plus className="h-4 w-4" /> New department</Button> : undefined}
       />
 
       <Card>
         {loading ? <PageSpinner /> : !data || data.content.length === 0 ? (
           <EmptyState icon={<Building2 className="h-10 w-10" />} title="No departments yet"
             description="Create departments like Cardiology, Orthopedics, or General Medicine to start onboarding doctors."
-            action={isAdmin ? <Button onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4" /> New department</Button> : undefined}
+            action={isAdmin ? <Button onClick={openCreate}><Plus className="h-4 w-4" /> New department</Button> : undefined}
           />
         ) : (
           <>
             <Table>
-              <THead><TR><TH>Name</TH><TH>Description</TH><TH>Status</TH></TR></THead>
+              <THead><TR><TH>Name</TH><TH>Description</TH><TH>Status</TH>{isAdmin && <TH className="text-right">Actions</TH>}</TR></THead>
               <TBody>
                 {data.content.map(d => (
                   <TR key={d.id}>
                     <TD className="font-medium text-ink-900">{d.name}</TD>
                     <TD className="text-ink-500 max-w-md truncate">{d.description || '—'}</TD>
                     <TD><Badge variant={d.active ? 'success' : 'neutral'}>{d.active ? 'Active' : 'Inactive'}</Badge></TD>
+                    {isAdmin && <TD className="text-right"><Button size="sm" variant="outline" onClick={() => openEdit(d)}><Pencil className="h-3.5 w-3.5" /> Edit</Button></TD>}
                   </TR>
                 ))}
               </TBody>
@@ -85,13 +110,13 @@ export default function DepartmentsPage() {
 
       {isAdmin && (
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogContent title="New department">
+          <DialogContent title={editingDepartment ? 'Edit department' : 'New department'}>
             <div className="space-y-3">
-              <div><Label>Name *</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Cardiology" /></div>
-              <div><Label>Description</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} /></div>
+              <div><Label>Name *</Label><Input required maxLength={100} aria-invalid={!!nameError} error={!!nameError} value={name} onChange={(e) => { setName(e.target.value); setNameError('') }} placeholder="e.g. Cardiology" /><FieldError message={nameError} /></div>
+              <div><Label>Description</Label><Textarea maxLength={500} value={description} onChange={(e) => setDescription(e.target.value)} rows={3} /></div>
               <div className="flex justify-end gap-2 pt-1">
-                <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-                <Button onClick={handleCreate} loading={saving}>Create</Button>
+                <Button variant="outline" onClick={() => { setCreateOpen(false); setEditingDepartment(null) }}>Cancel</Button>
+                <Button onClick={handleSave} loading={saving}>{editingDepartment ? 'Save changes' : 'Create'}</Button>
               </div>
             </div>
           </DialogContent>

@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api-client'
 import type { ApiResponse, PageResponse, OptionDto } from '@/types/api'
-import type { Bill, BillStatus, BillingAuditLog, ChargeMaster, ChargeMasterSummary, ChargeType, DiscountMaster } from '@/types/domain'
+import type { Bill, BillStatus, BillingAuditLog, ChargeMaster, ChargeMasterSummary, ChargeType, DiscountMaster, PaymentReceipt } from '@/types/domain'
 
 export const billingApi = {
   auditLogs: {
@@ -34,17 +34,19 @@ export const billingApi = {
   bills: {
     create: (payload: { patientId: number; admissionId?: number; appointmentId?: number; billType: string; items: { chargeMasterId?: number; description: string; quantity: number; unitPrice: number }[] }) =>
       apiClient.post<ApiResponse<Bill>>('/api/v1/bills', payload).then(r => r.data.data),
-    finalize: (id: number, discountMasterId?: number, taxAmount?: number) =>
-      apiClient.patch<ApiResponse<Bill>>(`/api/v1/bills/${id}/finalize`, { discountMasterId, taxAmount }).then(r => r.data.data),
-    recordReceipt: (id: number, amount: number, paymentMode: string) =>
-      apiClient.post<ApiResponse<void>>(`/api/v1/bills/${id}/receipts`, { amount, paymentMode }).then(r => r.data.data),
+    updateDraft: (id: number, payload: { patientId: number; admissionId?: number; appointmentId?: number; billType: string; items: { chargeMasterId?: number; description: string; quantity: number; unitPrice: number }[] }) =>
+      apiClient.put<ApiResponse<Bill>>(`/api/v1/bills/${id}`, payload).then(r => r.data.data),
+    finalize: (id: number, discountMasterId: number | undefined, taxAmount: number, paymentMode: 'CASH' | 'UPI' | 'CARD') =>
+      apiClient.patch<ApiResponse<Bill>>(`/api/v1/bills/${id}/finalize`, { discountMasterId, taxAmount, paymentMode }).then(r => r.data.data),
+    patientReceiptHistory: (patientId: number, params: { page?: number; size?: number } = {}) =>
+      apiClient.get<ApiResponse<PageResponse<PaymentReceipt>>>(`/api/v1/bills/patients/${patientId}/receipts`, { params }).then(r => r.data.data),
     refund: (id: number, amount: number, reason: string) =>
       apiClient.post<ApiResponse<void>>(`/api/v1/bills/${id}/refunds`, { amount, reason }).then(r => r.data.data),
-    cancel: (id: number) =>
-      apiClient.patch<ApiResponse<Bill>>(`/api/v1/bills/${id}/cancel`).then(r => r.data.data),
+    voidBill: (id: number, password: string) =>
+      apiClient.patch<ApiResponse<Bill>>(`/api/v1/bills/${id}/void`, { password }).then(r => r.data.data),
     get: (id: number) =>
       apiClient.get<ApiResponse<Bill>>(`/api/v1/bills/${id}`).then(r => r.data.data),
-    search: (params: { patientId?: number; status?: BillStatus; page?: number; size?: number }) =>
+    search: (params: { patientId?: number; q?: string; status?: BillStatus; page?: number; size?: number }) =>
       apiClient.get<ApiResponse<PageResponse<Bill>>>('/api/v1/bills', { params }).then(r => r.data.data),
   },
 }

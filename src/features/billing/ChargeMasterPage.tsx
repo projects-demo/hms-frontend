@@ -20,6 +20,7 @@ import type { ChargeMaster, ChargeMasterSummary, ChargeType, Doctor } from '@/ty
 import { formatCurrency } from '@/lib/utils'
 import { apiErrorMessage } from '@/lib/api-client'
 import { toast } from 'sonner'
+import { FieldError } from '@/components/common/FieldError'
 
 type ChargeForm = { name: string; code: string; chargeTypeId: string; defaultPrice: string; applicableDoctorId: string }
 const EMPTY_CHARGE: ChargeForm = { name: '', code: '', chargeTypeId: '', defaultPrice: '', applicableDoctorId: '' }
@@ -41,6 +42,7 @@ export default function ChargeMasterPage() {
   const [saving, setSaving] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [updatingId, setUpdatingId] = useState<number | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   const activeFilter = statusFilter === 'ALL' ? undefined : statusFilter === 'ACTIVE'
   const { data, loading, page, setPage, reload } = usePaginated(
@@ -90,8 +92,14 @@ export default function ChargeMasterPage() {
 
   async function saveCharge() {
     const price = Number(chargeForm.defaultPrice)
-    if (!chargeForm.name.trim() || !chargeForm.chargeTypeId || !Number.isFinite(price) || price < 0) {
-      toast.error('Charge name, charge type, and a valid default amount are required')
+    const nextErrors = {
+      chargeName: chargeForm.name.trim() ? '' : 'Charge name is required.',
+      chargeTypeId: chargeForm.chargeTypeId ? '' : 'Select a charge type.',
+      defaultPrice: chargeForm.defaultPrice.trim() && Number.isFinite(price) && price >= 0 ? '' : 'Enter a non-negative default amount.',
+    }
+    setErrors(current => ({ ...current, ...nextErrors }))
+    if (Object.values(nextErrors).some(Boolean)) {
+      toast.error('Please correct the highlighted fields')
       return
     }
     setSaving(true)
@@ -120,7 +128,8 @@ export default function ChargeMasterPage() {
 
   async function saveChargeType() {
     if (!typeForm.name.trim()) {
-      toast.error('Charge type name is required')
+      setErrors(current => ({ ...current, typeName: 'Charge type name is required.' }))
+      toast.error('Please correct the highlighted field')
       return
     }
     setSaving(true)
@@ -135,6 +144,7 @@ export default function ChargeMasterPage() {
       toast.success('Charge type added')
       setTypeDialogOpen(false)
       setTypeForm({ name: '', code: '', active: true })
+      setErrors(current => ({ ...current, typeName: '' }))
     } catch (err) {
       toast.error(apiErrorMessage(err))
     } finally {
@@ -269,10 +279,10 @@ export default function ChargeMasterPage() {
       <Dialog open={typeDialogOpen} onOpenChange={setTypeDialogOpen}>
         <DialogContent title="Add New Charge Type" className="max-w-xl">
           <div className="space-y-4">
-            <div><Label>Charge Type Name *</Label><Input value={typeForm.name} onChange={event => setTypeForm(current => ({ ...current, name: event.target.value }))} placeholder="e.g., Pathology Test, Radiology Scan" /></div>
-            <div><Label>Charge Type Code <span className="text-ink-400">(Auto-generates if empty)</span></Label><Input value={typeForm.code} onChange={event => setTypeForm(current => ({ ...current, code: event.target.value }))} placeholder="PATHOLOGY_TEST" /><p className="mt-1 text-xs text-ink-400">Leave blank to generate a code from the name.</p></div>
+            <div><Label>Charge Type Name *</Label><Input required maxLength={100} aria-invalid={!!errors.typeName} error={!!errors.typeName} value={typeForm.name} onChange={event => { setTypeForm(current => ({ ...current, name: event.target.value })); setErrors(current => ({ ...current, typeName: '' })) }} placeholder="e.g., Pathology Test, Radiology Scan" /><FieldError message={errors.typeName} /></div>
+            <div><Label>Charge Type Code <span className="text-ink-400">(Auto-generates if empty)</span></Label><Input maxLength={50} value={typeForm.code} onChange={event => setTypeForm(current => ({ ...current, code: event.target.value }))} placeholder="PATHOLOGY_TEST" /><p className="mt-1 text-xs text-ink-400">Leave blank to generate a code from the name.</p></div>
             <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-success-200 bg-success-50/40 p-3 text-sm"><input type="checkbox" checked={typeForm.active} onChange={event => setTypeForm(current => ({ ...current, active: event.target.checked }))} /> Active</label>
-            <div className="flex justify-end gap-2 border-t border-border pt-4"><Button variant="outline" onClick={() => setTypeDialogOpen(false)}>Cancel</Button><Button onClick={saveChargeType} loading={saving} disabled={!typeForm.name.trim()}>Add Charge Type</Button></div>
+            <div className="flex justify-end gap-2 border-t border-border pt-4"><Button variant="outline" onClick={() => setTypeDialogOpen(false)}>Cancel</Button><Button onClick={saveChargeType} loading={saving}>Add Charge Type</Button></div>
           </div>
         </DialogContent>
       </Dialog>
@@ -280,12 +290,12 @@ export default function ChargeMasterPage() {
       <Dialog open={chargeDialogOpen} onOpenChange={setChargeDialogOpen}>
         <DialogContent title={editingCharge ? 'Edit Charge' : 'Add New Charge'} className="max-w-xl">
           <div className="space-y-4">
-            <div><Label>Charge Name *</Label><Input value={chargeForm.name} onChange={event => setChargeForm(current => ({ ...current, name: event.target.value }))} placeholder="Enter charge name" /></div>
-            <div><Label>Code (Optional)</Label><Input value={chargeForm.code} onChange={event => setChargeForm(current => ({ ...current, code: event.target.value }))} placeholder="Leave blank to auto-generate" /></div>
-            <div><Label>Charge Type *</Label><Select value={chargeForm.chargeTypeId} onValueChange={value => setChargeForm(current => ({ ...current, chargeTypeId: value }))} placeholder="Select charge type">{types.filter(type => type.active || (editingCharge && type.id === editingCharge.chargeTypeId)).map(type => <SelectItem key={type.id} value={String(type.id)}>{type.name}</SelectItem>)}</Select></div>
-            <div><Label>Default Amount (₹) *</Label><Input type="number" min={0} step="0.01" value={chargeForm.defaultPrice} onChange={event => setChargeForm(current => ({ ...current, defaultPrice: event.target.value }))} placeholder="Enter amount" /></div>
+            <div><Label>Charge Name *</Label><Input required maxLength={150} aria-invalid={!!errors.chargeName} error={!!errors.chargeName} value={chargeForm.name} onChange={event => { setChargeForm(current => ({ ...current, name: event.target.value })); setErrors(current => ({ ...current, chargeName: '' })) }} placeholder="Enter charge name" /><FieldError message={errors.chargeName} /></div>
+            <div><Label>Code (Optional)</Label><Input maxLength={50} value={chargeForm.code} onChange={event => setChargeForm(current => ({ ...current, code: event.target.value }))} placeholder="Leave blank to auto-generate" /></div>
+            <div><Label>Charge Type *</Label><Select value={chargeForm.chargeTypeId} className={errors.chargeTypeId ? 'border-danger-500' : undefined} onValueChange={value => { setChargeForm(current => ({ ...current, chargeTypeId: value })); setErrors(current => ({ ...current, chargeTypeId: '' })) }} placeholder="Select charge type">{types.filter(type => type.active || (editingCharge && type.id === editingCharge.chargeTypeId)).map(type => <SelectItem key={type.id} value={String(type.id)}>{type.name}</SelectItem>)}</Select><FieldError message={errors.chargeTypeId} /></div>
+            <div><Label>Default Amount (₹) *</Label><Input required type="number" min={0} step="0.01" aria-invalid={!!errors.defaultPrice} error={!!errors.defaultPrice} value={chargeForm.defaultPrice} onChange={event => { setChargeForm(current => ({ ...current, defaultPrice: event.target.value })); setErrors(current => ({ ...current, defaultPrice: '' })) }} placeholder="Enter amount" /><FieldError message={errors.defaultPrice} /></div>
             <div><Label>Applicable Doctor</Label><Select value={chargeForm.applicableDoctorId} onValueChange={value => setChargeForm(current => ({ ...current, applicableDoctorId: value }))}><SelectItem value="ALL">All Doctors</SelectItem>{doctors.map(doctor => <SelectItem key={doctor.id} value={String(doctor.id)}>{doctor.fullName}</SelectItem>)}</Select></div>
-            <div className="flex justify-end gap-2 border-t border-border pt-4"><Button variant="outline" onClick={() => setChargeDialogOpen(false)}>Cancel</Button><Button onClick={saveCharge} loading={saving} disabled={!chargeForm.name.trim() || !chargeForm.chargeTypeId}>{editingCharge ? 'Save Changes' : 'Add Charge'}</Button></div>
+            <div className="flex justify-end gap-2 border-t border-border pt-4"><Button variant="outline" onClick={() => setChargeDialogOpen(false)}>Cancel</Button><Button onClick={saveCharge} loading={saving}>{editingCharge ? 'Save Changes' : 'Add Charge'}</Button></div>
           </div>
         </DialogContent>
       </Dialog>

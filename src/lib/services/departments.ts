@@ -9,4 +9,6 @@ export const departmentsApi = {
     apiClient.get<ApiResponse<Department>>(`/api/v1/departments/${id}`).then(r => r.data.data),
   create: (payload: { name: string; description?: string }) =>
     apiClient.post<ApiResponse<Department>>('/api/v1/departments', payload).then(r => r.data.data),
+  update: (id: number, payload: { name: string; description?: string }) =>
+    apiClient.put<ApiResponse<Department>>(`/api/v1/departments/${id}`, payload).then(r => r.data.data),
 }

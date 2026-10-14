@@ -15,6 +15,7 @@ import { formatTime } from '@/lib/utils'
 import { apiErrorMessage } from '@/lib/api-client'
 import { toast } from 'sonner'
 import { CalendarClock, Loader2 } from 'lucide-react'
+import { FieldError } from '@/components/common/FieldError'
 
 export function BookAppointmentDialog({ open, onOpenChange, onBooked }: {
   open: boolean; onOpenChange: (o: boolean) => void; onBooked: () => void
@@ -36,6 +37,7 @@ export function BookAppointmentDialog({ open, onOpenChange, onBooked }: {
   const [selectedSlot, setSelectedSlot] = useState<AppointmentSlot | null>(null)
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [booking, setBooking] = useState(false)
+  const [errors, setErrors] = useState({ patient: '', departmentId: '', doctorId: '', date: '' })
 
   // Load departments once, when the dialog first opens.
   useEffect(() => {
@@ -62,6 +64,7 @@ export function BookAppointmentDialog({ open, onOpenChange, onBooked }: {
     setPatient(null); setDepartmentId(''); setDoctors([]); setDoctorId('')
     setDate(''); setAppointmentType('NEW'); setFreeVisit(false); setNotes('')
     setSlots([]); setSelectedSlot(null)
+    setErrors({ patient: '', departmentId: '', doctorId: '', date: '' })
   }
 
   async function loadSlots() {
@@ -85,7 +88,14 @@ export function BookAppointmentDialog({ open, onOpenChange, onBooked }: {
   }
 
   async function handleBook() {
-    if (!patient || !doctorId || !date) { toast.error('Patient, department, doctor and date are required'); return }
+    const nextErrors = {
+      patient: patient ? '' : 'Select a patient.',
+      departmentId: departmentId ? '' : 'Select a department.',
+      doctorId: doctorId ? '' : 'Select a doctor.',
+      date: date ? '' : 'Choose an appointment date.',
+    }
+    setErrors(nextErrors)
+    if (!patient || Object.values(nextErrors).some(Boolean)) { toast.error('Please correct the highlighted fields'); return }
     setBooking(true)
     try {
       await appointmentsApi.book({
@@ -108,33 +118,38 @@ export function BookAppointmentDialog({ open, onOpenChange, onBooked }: {
         <div className="space-y-4">
           <div>
             <Label>Patient *</Label>
-            <AsyncCombobox value={patient} onChange={setPatient} fetchOptions={(q) => patientsApi.autocomplete(q)} placeholder="Search patient by name or phone" />
+            <AsyncCombobox value={patient} onChange={(value) => { setPatient(value); setErrors(current => ({ ...current, patient: '' })) }} fetchOptions={(q) => patientsApi.autocomplete(q)} placeholder="Search patient by name or phone" />
+            <FieldError message={errors.patient} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Department *</Label>
-              <Select value={departmentId} onValueChange={setDepartmentId} placeholder="Select department">
+              <Select value={departmentId} onValueChange={(value) => { setDepartmentId(value); setErrors(current => ({ ...current, departmentId: '', doctorId: '' })) }} placeholder="Select department" className={errors.departmentId ? 'border-danger-500' : undefined}>
                 {departments.map(d => <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>)}
               </Select>
+              <FieldError message={errors.departmentId} />
             </div>
             <div>
               <Label>Doctor *</Label>
               <Select
                 value={doctorId}
-                onValueChange={setDoctorId}
+                onValueChange={(value) => { setDoctorId(value); setErrors(current => ({ ...current, doctorId: '' })) }}
                 placeholder={!departmentId ? 'Pick a department first' : loadingDoctors ? 'Loading...' : doctors.length === 0 ? 'No doctors in this department' : 'Select doctor'}
                 disabled={!departmentId || loadingDoctors || doctors.length === 0}
+                className={errors.doctorId ? 'border-danger-500' : undefined}
               >
                 {doctors.map(d => <SelectItem key={d.id} value={String(d.id)}>{d.fullName} — {d.specialization}</SelectItem>)}
               </Select>
+              <FieldError message={errors.doctorId} />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Date *</Label>
-              <Input type="date" value={date} onChange={(e) => { setDate(e.target.value); setSlots([]); setSelectedSlot(null) }} min={new Date().toISOString().slice(0, 10)} />
+              <Input type="date" required min={new Date().toISOString().slice(0, 10)} aria-invalid={!!errors.date} error={!!errors.date} value={date} onChange={(e) => { setDate(e.target.value); setSlots([]); setSelectedSlot(null); setErrors(current => ({ ...current, date: '' })) }} />
+              <FieldError message={errors.date} />
             </div>
             <div>
               <Label>Type</Label>
@@ -178,7 +193,7 @@ export function BookAppointmentDialog({ open, onOpenChange, onBooked }: {
 
           <div>
             <Label>Notes</Label>
-            <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
+            <Input maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
           </div>
 
           <label className="flex items-center gap-2 text-sm text-ink-700">

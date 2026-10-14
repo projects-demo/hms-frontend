@@ -17,15 +17,19 @@ import { staffApi, type StaffRequest } from '@/lib/services/staff'
 import { toTitleCase } from '@/lib/utils'
 import { apiErrorMessage } from '@/lib/api-client'
 import { toast } from 'sonner'
+import { PhoneInput } from '@/components/common/PhoneInput'
+import { FieldError } from '@/components/common/FieldError'
+import { emailError, phoneError, requiredError } from '@/lib/validation'
 
 const STAFF_TYPES = ['NURSE', 'RECEPTIONIST', 'BILLING_STAFF', 'PHARMACIST', 'LAB_TECH']
-const EMPTY: StaffRequest = { username: '', password: '', fullName: '', phone: '', staffType: 'NURSE', shift: '' }
+const EMPTY: StaffRequest = { username: '', email: '', password: '', fullName: '', phone: '', staffType: 'NURSE', shift: '' }
 
 export default function StaffPage() {
   const [typeFilter, setTypeFilter] = useState<string>('ALL')
   const [createOpen, setCreateOpen] = useState(false)
   const [form, setForm] = useState<StaffRequest>(EMPTY)
   const [saving, setSaving] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   const { data, loading, page, setPage, reload } = usePaginated(
     (page, size) => staffApi.list({ staffType: typeFilter === 'ALL' ? undefined : typeFilter, page, size }),
@@ -34,16 +38,26 @@ export default function StaffPage() {
 
   function set<K extends keyof StaffRequest>(key: K, value: StaffRequest[K]) {
     setForm(f => ({ ...f, [key]: value }))
+    setErrors(current => ({ ...current, [key]: '' }))
   }
 
   async function handleCreate() {
-    if (!form.username || !form.password || !form.fullName) { toast.error('Username, password and full name are required'); return }
+    const nextErrors = {
+      username: requiredError(form.username ?? '', 'Username') ?? '',
+      email: emailError(form.email ?? '', true) ?? '',
+      password: !form.password ? 'Password is required.' : form.password.length < 8 ? 'Password must be at least 8 characters.' : '',
+      fullName: requiredError(form.fullName ?? '', 'Full name') ?? '',
+      phone: phoneError(form.phone ?? '') ?? '',
+    }
+    setErrors(nextErrors)
+    if (Object.values(nextErrors).some(Boolean)) { toast.error('Please correct the highlighted fields'); return }
     setSaving(true)
     try {
       await staffApi.create(form)
       toast.success('Staff member onboarded')
       setCreateOpen(false)
       setForm(EMPTY)
+      setErrors({})
       reload()
     } catch (err) {
       toast.error(apiErrorMessage(err))
@@ -96,10 +110,11 @@ export default function StaffPage() {
         <DialogContent title="Onboard staff member" description="Creates their login and profile together.">
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>Username *</Label><Input value={form.username} onChange={(e) => set('username', e.target.value)} /></div>
-              <div><Label>Password *</Label><Input type="password" value={form.password} onChange={(e) => set('password', e.target.value)} /></div>
-              <div className="col-span-2"><Label>Full name *</Label><Input value={form.fullName} onChange={(e) => set('fullName', e.target.value)} /></div>
-              <div><Label>Phone</Label><Input value={form.phone} onChange={(e) => set('phone', e.target.value)} /></div>
+              <div><Label>Username *</Label><Input required maxLength={50} aria-invalid={!!errors.username} error={!!errors.username} value={form.username} onChange={(e) => set('username', e.target.value)} /><FieldError message={errors.username} /></div>
+              <div><Label>Password *</Label><Input required minLength={8} type="password" aria-invalid={!!errors.password} error={!!errors.password} value={form.password} onChange={(e) => set('password', e.target.value)} /><FieldError message={errors.password} /></div>
+              <div className="col-span-2"><Label>Full name *</Label><Input required maxLength={150} aria-invalid={!!errors.fullName} error={!!errors.fullName} value={form.fullName} onChange={(e) => set('fullName', e.target.value)} /><FieldError message={errors.fullName} /></div>
+              <div className="col-span-2"><Label>Email *</Label><Input required type="email" maxLength={150} aria-invalid={!!errors.email} error={!!errors.email} value={form.email ?? ''} onChange={(e) => set('email', e.target.value)} /><FieldError message={errors.email} /></div>
+              <div><Label>Phone</Label><PhoneInput aria-invalid={!!errors.phone} error={!!errors.phone} value={form.phone ?? ''} onChange={(value) => set('phone', value)} /><FieldError message={errors.phone} /></div>
               <div>
                 <Label>Staff type</Label>
                 <Select value={form.staffType} onValueChange={(v) => set('staffType', v)}>

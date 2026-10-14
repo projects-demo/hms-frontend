@@ -92,3 +92,172 @@
   &::-webkit-scrollbar-thumb { background-color: var(--color-border-strong); border-radius: 8px; }
   &::-webkit-scrollbar-track { background-color: transparent; }
 }
+
+.invoice-print-area {
+  display: none;
+}
+
+.receipt-print-area {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .invoice-print-area,
+  .invoice-print-area *,
+  .receipt-print-area,
+  .receipt-print-area * {
+    visibility: visible !important;
+  }
+
+  .invoice-print-area {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    min-height: 100%;
+    padding: 0;
+    background: #fff !important;
+    color: #111 !important;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+  }
+
+  .receipt-print-area {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    min-height: 100%;
+    padding: 0;
+    background: #fff !important;
+    color: #111 !important;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+  }
+
+  body.print-invoice .receipt-print-area,
+  body.print-receipt .invoice-print-area {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  .invoice-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding-bottom: 18px;
+    border-bottom: 2px solid #14635b;
+  }
+
+  .invoice-hospital {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .invoice-logo {
+    width: 58px;
+    height: 58px;
+    object-fit: contain;
+  }
+
+  .invoice-hospital h1,
+  .invoice-title h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  .invoice-hospital p,
+  .invoice-title p {
+    margin: 4px 0 0;
+    color: #555;
+  }
+
+  .invoice-title {
+    text-align: right;
+  }
+
+  .invoice-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px 20px;
+    padding: 20px 0;
+  }
+
+  .invoice-meta div,
+  .invoice-totals div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .invoice-meta div {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .invoice-meta strong,
+  .invoice-totals span {
+    color: #555;
+  }
+
+  .invoice-items {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .invoice-items th,
+  .invoice-items td {
+    padding: 9px 8px;
+    border-bottom: 1px solid #ddd;
+    text-align: left;
+  }
+
+  .invoice-items th:not(:first-child),
+  .invoice-items td:not(:first-child) {
+    text-align: right;
+  }
+
+  .invoice-totals {
+    width: 45%;
+    margin: 20px 0 0 auto;
+  }
+
+  .invoice-totals div {
+    padding: 6px 0;
+  }
+
+  .invoice-grand-total {
+    margin-top: 4px;
+    border-top: 1px solid #999;
+    border-bottom: 1px solid #999;
+    font-size: 14px;
+  }
+
+  .invoice-footer {
+    margin-top: 40px;
+    padding-top: 12px;
+    border-top: 1px solid #ddd;
+    text-align: center;
+    color: #555;
+  }
+
+  .receipt-paid-amount {
+    margin-top: 16px;
+    padding: 16px;
+    border: 1px solid #bbb;
+    text-align: right;
+    font-size: 18px;
+    font-weight: 700;
+  }
+}

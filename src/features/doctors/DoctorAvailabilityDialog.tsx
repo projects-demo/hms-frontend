@@ -13,6 +13,7 @@ import { formatTime } from '@/lib/utils'
 import { apiErrorMessage } from '@/lib/api-client'
 import { toast } from 'sonner'
 import { Plus, CalendarDays } from 'lucide-react'
+import { FieldError } from '@/components/common/FieldError'
 
 const DAYS = [
   { value: '1', label: 'Monday' }, { value: '2', label: 'Tuesday' }, { value: '3', label: 'Wednesday' },
@@ -31,6 +32,7 @@ export function DoctorAvailabilityDialog({ open, onOpenChange, doctor }: {
   const [endTime, setEndTime] = useState('13:00')
   const [slotDurationMins, setSlotDurationMins] = useState('15')
   const [saving, setSaving] = useState(false)
+  const [timeError, setTimeError] = useState('')
 
   function load() {
     if (!doctor) return
@@ -45,7 +47,8 @@ export function DoctorAvailabilityDialog({ open, onOpenChange, doctor }: {
 
   async function handleAdd() {
     if (!doctor) return
-    if (startTime >= endTime) { toast.error('End time must be after start time'); return }
+    if (startTime >= endTime) { setTimeError('End time must be after start time.'); toast.error('Please correct the highlighted time'); return }
+    setTimeError('')
     setSaving(true)
     try {
       await doctorsApi.addAvailability(doctor.id, {
@@ -116,8 +119,8 @@ export function DoctorAvailabilityDialog({ open, onOpenChange, doctor }: {
                   <SelectItem value="30">30 minutes</SelectItem>
                 </Select>
               </div>
-              <div><Label>Start time</Label><Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} /></div>
-              <div><Label>End time</Label><Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} /></div>
+              <div><Label>Start time</Label><Input required type="time" aria-invalid={!!timeError} error={!!timeError} value={startTime} onChange={(e) => { setStartTime(e.target.value); setTimeError('') }} /></div>
+              <div><Label>End time</Label><Input required type="time" aria-invalid={!!timeError} error={!!timeError} value={endTime} onChange={(e) => { setEndTime(e.target.value); setTimeError('') }} /><FieldError message={timeError} /></div>
             </div>
             <Button className="w-full mt-3" onClick={handleAdd} loading={saving}>
               <Plus className="h-4 w-4" /> Add window

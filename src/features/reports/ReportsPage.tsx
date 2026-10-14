@@ -16,6 +16,7 @@ import { formatCurrency, formatDate, toTitleCase } from '@/lib/utils'
 import { apiErrorMessage } from '@/lib/api-client'
 import { toast } from 'sonner'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
+import { FieldError } from '@/components/common/FieldError'
 
 function last30Days() {
   const to = new Date()
@@ -32,6 +33,7 @@ export default function ReportsPage() {
   const [appliedFrom, setAppliedFrom] = useState(defaults.from)
   const [appliedTo, setAppliedTo] = useState(defaults.to)
   const [tab, setTab] = useState('overview')
+  const [rangeError, setRangeError] = useState('')
 
   const [opdTrend, setOpdTrend] = useState<OpdTrend | null>(null)
   const [doctors, setDoctors] = useState<DoctorPerformance[]>([])
@@ -57,12 +59,15 @@ export default function ReportsPage() {
   }, [appliedFrom, appliedTo])
 
   function applyRange() {
-    if (from > to) { toast.error('Start date must be before end date'); return }
+    if (!from || !to || from > to) { setRangeError('Choose both dates and make sure the start date is not after the end date.'); toast.error('Please correct the date range'); return }
+    setRangeError('')
     setAppliedFrom(from); setAppliedTo(to)
   }
 
   const topDoctor = doctors[0]
   const topDepartment = departments[0]
+  const totalCollectedByMethod = revenue?.paymentModeBreakdown.reduce((sum, payment) => sum + payment.amount, 0) ?? 0
+  const paymentModeLabels: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', CARD: 'Card', INSURANCE: 'Insurance', CHEQUE: 'Cheque' }
 
   return (
     <div>
@@ -72,11 +77,12 @@ export default function ReportsPage() {
         <div className="p-4 flex flex-wrap items-end gap-3">
           <div>
             <p className="text-xs font-medium text-ink-500 mb-1.5">From</p>
-            <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40" />
+            <Input required type="date" aria-invalid={!!rangeError} error={!!rangeError} value={from} onChange={(e) => { setFrom(e.target.value); setRangeError('') }} className="w-40" />
           </div>
           <div>
             <p className="text-xs font-medium text-ink-500 mb-1.5">To</p>
-            <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" />
+            <Input required type="date" aria-invalid={!!rangeError} error={!!rangeError} value={to} onChange={(e) => { setTo(e.target.value); setRangeError('') }} className="w-40" />
+            <FieldError message={rangeError} />
           </div>
           <Button onClick={applyRange}><CalendarDays className="h-4 w-4" /> Apply</Button>
           <p className="text-xs text-ink-400 ml-auto">Demographics reflect the current patient registry (not date-filtered).</p>
@@ -222,11 +228,11 @@ export default function ReportsPage() {
                       {revenue.paymentModeBreakdown.map(p => (
                         <div key={p.mode}>
                           <div className="flex justify-between text-sm mb-1">
-                            <span className="text-ink-700">{toTitleCase(p.mode)} <span className="text-ink-400">({p.count})</span></span>
+                            <span className="text-ink-700">{paymentModeLabels[p.mode] ?? toTitleCase(p.mode)} <span className="text-ink-400">({p.count})</span></span>
                             <span className="font-medium">{formatCurrency(p.amount)}</span>
                           </div>
                           <div className="h-1.5 rounded-full bg-black/5 overflow-hidden">
-                            <div className="h-full bg-primary-500 rounded-full" style={{ width: `${revenue.totalRevenue > 0 ? (p.amount / revenue.totalRevenue) * 100 : 0}%` }} />
+                            <div className="h-full bg-primary-500 rounded-full" style={{ width: `${totalCollectedByMethod > 0 ? (p.amount / totalCollectedByMethod) * 100 : 0}%` }} />
                           </div>
                         </div>
                       ))}

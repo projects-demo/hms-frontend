@@ -20,10 +20,11 @@ import { useDebounce } from '@/hooks/useDebounce'
 import { pharmacyApi } from '@/lib/services/pharmacy'
 import type { DrugBatch } from '@/types/domain'
 import type { OptionDto as Opt } from '@/types/api'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
 import { apiErrorMessage } from '@/lib/api-client'
 import { toast } from 'sonner'
 import { DispenseDialog } from './DispenseDialog'
+import { FieldError } from '@/components/common/FieldError'
 
 export default function PharmacyPage() {
   const [searchParams] = useSearchParams()
@@ -63,6 +64,7 @@ function DrugsTab() {
   const [category, setCategory] = useState('')
   const [reorderLevel, setReorderLevel] = useState('10')
   const [saving, setSaving] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   const [batchDrug, setBatchDrug] = useState<Opt | null>(null)
   const [batchNumber, setBatchNumber] = useState('')
@@ -77,24 +79,42 @@ function DrugsTab() {
   )
 
   async function createDrug() {
-    if (!name.trim()) { toast.error('Drug name is required'); return }
+    const reorder = Number(reorderLevel)
+    const nextErrors = {
+      name: name.trim() ? '' : 'Drug name is required.',
+      reorderLevel: Number.isInteger(reorder) && reorder >= 0 ? '' : 'Reorder level must be a non-negative whole number.',
+    }
+    setErrors(current => ({ ...current, ...nextErrors }))
+    if (Object.values(nextErrors).some(Boolean)) { toast.error('Please correct the highlighted fields'); return }
     setSaving(true)
     try {
       await pharmacyApi.drugs.create({ name, genericName: genericName || undefined, manufacturer: manufacturer || undefined, category: category || undefined, reorderLevel: Number(reorderLevel) })
       toast.success('Drug added to catalog')
       setCreateOpen(false)
-      setName(''); setGenericName(''); setManufacturer(''); setCategory(''); setReorderLevel('10')
+      setName(''); setGenericName(''); setManufacturer(''); setCategory(''); setReorderLevel('10'); setErrors({})
       reload()
     } catch (err) { toast.error(apiErrorMessage(err)) } finally { setSaving(false) }
   }
 
   async function receiveBatch() {
-    if (!batchDrug || !batchNumber || !expiryDate || !quantity) { toast.error('All batch fields are required'); return }
+    const quantityValue = Number(quantity)
+    const purchaseValue = purchasePrice.trim() ? Number(purchasePrice) : 0
+    const sellingValue = sellingPrice.trim() ? Number(sellingPrice) : 0
+    const nextErrors = {
+      batchDrug: batchDrug ? '' : 'Select a drug.',
+      batchNumber: batchNumber.trim() ? '' : 'Batch number is required.',
+      expiryDate: expiryDate ? '' : 'Expiry date is required.',
+      quantity: Number.isInteger(quantityValue) && quantityValue >= 1 ? '' : 'Quantity must be a whole number of at least 1.',
+      purchasePrice: Number.isFinite(purchaseValue) && purchaseValue >= 0 ? '' : 'Purchase price must be non-negative.',
+      sellingPrice: Number.isFinite(sellingValue) && sellingValue >= 0 ? '' : 'Selling price must be non-negative.',
+    }
+    setErrors(current => ({ ...current, ...nextErrors }))
+    if (!batchDrug || Object.values(nextErrors).some(Boolean)) { toast.error('Please correct the highlighted fields'); return }
     setSaving(true)
     try {
       await pharmacyApi.drugs.receiveBatch({
         drugId: batchDrug.id, batchNumber, expiryDate, quantity: Number(quantity),
-        purchasePrice: Number(purchasePrice) || 0, sellingPrice: Number(sellingPrice) || 0,
+        purchasePrice: purchaseValue, sellingPrice: sellingValue,
       })
       toast.success('Stock batch received')
       setBatchOpen(false)
@@ -140,11 +160,11 @@ function DrugsTab() {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent title="Add drug to catalog">
           <div className="space-y-3">
-            <div><Label>Name *</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
-            <div><Label>Generic name</Label><Input value={genericName} onChange={(e) => setGenericName(e.target.value)} /></div>
-            <div><Label>Manufacturer</Label><Input value={manufacturer} onChange={(e) => setManufacturer(e.target.value)} /></div>
-            <div><Label>Category</Label><Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Tablet, Syrup, Injection..." /></div>
-            <div><Label>Reorder level</Label><Input type="number" value={reorderLevel} onChange={(e) => setReorderLevel(e.target.value)} /></div>
+            <div><Label>Name *</Label><Input required maxLength={150} aria-invalid={!!errors.name} error={!!errors.name} value={name} onChange={(e) => { setName(e.target.value); setErrors(current => ({ ...current, name: '' })) }} /><FieldError message={errors.name} /></div>
+            <div><Label>Generic name</Label><Input maxLength={150} value={genericName} onChange={(e) => setGenericName(e.target.value)} /></div>
+            <div><Label>Manufacturer</Label><Input maxLength={150} value={manufacturer} onChange={(e) => setManufacturer(e.target.value)} /></div>
+            <div><Label>Category</Label><Input maxLength={100} value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Tablet, Syrup, Injection..." /></div>
+            <div><Label>Reorder level</Label><Input type="number" min={0} step={1} aria-invalid={!!errors.reorderLevel} error={!!errors.reorderLevel} value={reorderLevel} onChange={(e) => { setReorderLevel(e.target.value); setErrors(current => ({ ...current, reorderLevel: '' })) }} /><FieldError message={errors.reorderLevel} /></div>
             <div className="flex justify-end gap-2 pt-1">
               <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
               <Button onClick={createDrug} loading={saving}>Add drug</Button>
@@ -158,14 +178,15 @@ function DrugsTab() {
           <div className="space-y-3">
             <div>
               <Label>Drug *</Label>
-              <AsyncCombobox value={batchDrug} onChange={setBatchDrug} fetchOptions={(q) => pharmacyApi.drugs.autocomplete(q)} placeholder="Search drug" />
+              <AsyncCombobox value={batchDrug} onChange={(value) => { setBatchDrug(value); setErrors(current => ({ ...current, batchDrug: '' })) }} fetchOptions={(q) => pharmacyApi.drugs.autocomplete(q)} placeholder="Search drug" />
+              <FieldError message={errors.batchDrug} />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>Batch number *</Label><Input value={batchNumber} onChange={(e) => setBatchNumber(e.target.value)} /></div>
-              <div><Label>Expiry date *</Label><Input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} /></div>
-              <div><Label>Quantity *</Label><Input type="number" min={1} value={quantity} onChange={(e) => setQuantity(e.target.value)} /></div>
-              <div><Label>Purchase price (₹)</Label><Input type="number" value={purchasePrice} onChange={(e) => setPurchasePrice(e.target.value)} /></div>
-              <div><Label>Selling price (₹)</Label><Input type="number" value={sellingPrice} onChange={(e) => setSellingPrice(e.target.value)} /></div>
+              <div><Label>Batch number *</Label><Input required maxLength={50} aria-invalid={!!errors.batchNumber} error={!!errors.batchNumber} value={batchNumber} onChange={(e) => { setBatchNumber(e.target.value); setErrors(current => ({ ...current, batchNumber: '' })) }} /><FieldError message={errors.batchNumber} /></div>
+              <div><Label>Expiry date *</Label><Input required type="date" aria-invalid={!!errors.expiryDate} error={!!errors.expiryDate} value={expiryDate} onChange={(e) => { setExpiryDate(e.target.value); setErrors(current => ({ ...current, expiryDate: '' })) }} /><FieldError message={errors.expiryDate} /></div>
+              <div><Label>Quantity *</Label><Input required type="number" min={1} step={1} aria-invalid={!!errors.quantity} error={!!errors.quantity} value={quantity} onChange={(e) => { setQuantity(e.target.value); setErrors(current => ({ ...current, quantity: '' })) }} /><FieldError message={errors.quantity} /></div>
+              <div><Label>Purchase price (₹)</Label><Input type="number" min={0} step="0.01" aria-invalid={!!errors.purchasePrice} error={!!errors.purchasePrice} value={purchasePrice} onChange={(e) => { setPurchasePrice(e.target.value); setErrors(current => ({ ...current, purchasePrice: '' })) }} /><FieldError message={errors.purchasePrice} /></div>
+              <div><Label>Selling price (₹)</Label><Input type="number" min={0} step="0.01" aria-invalid={!!errors.sellingPrice} error={!!errors.sellingPrice} value={sellingPrice} onChange={(e) => { setSellingPrice(e.target.value); setErrors(current => ({ ...current, sellingPrice: '' })) }} /><FieldError message={errors.sellingPrice} /></div>
             </div>
             <div className="flex justify-end gap-2 pt-1">
               <Button variant="outline" onClick={() => setBatchOpen(false)}>Cancel</Button>

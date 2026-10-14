@@ -24,6 +24,9 @@ import { toast } from 'sonner'
 import { DoctorAvailabilityDialog } from './DoctorAvailabilityDialog'
 import { useAuth } from '@/features/auth/AuthContext'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
+import { PhoneInput } from '@/components/common/PhoneInput'
+import { FieldError } from '@/components/common/FieldError'
+import { emailError, integerError, numberError, phoneError, requiredError } from '@/lib/validation'
 
 const EMPTY_FORM = {
   username: '', email: '', password: '', fullName: '', phone: '',
@@ -39,6 +42,7 @@ export default function DoctorsPage() {
   const [departments, setDepartments] = useState<Department[]>([])
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
   const [availabilityDoctor, setAvailabilityDoctor] = useState<Doctor | null>(null)
   const [deactivateTarget, setDeactivateTarget] = useState<Doctor | null>(null)
   const [deactivating, setDeactivating] = useState(false)
@@ -61,16 +65,19 @@ export default function DoctorsPage() {
 
   function set<K extends keyof typeof form>(key: K, value: string) {
     setForm(f => ({ ...f, [key]: value }))
+    setValidationErrors(current => ({ ...current, [key]: '' }))
   }
 
   function openCreate() {
     setEditingDoctor(null)
     setForm(EMPTY_FORM)
+    setValidationErrors({})
     setCreateOpen(true)
   }
 
   function openEdit(doctor: Doctor) {
     setEditingDoctor(doctor)
+    setValidationErrors({})
     setForm({
       ...EMPTY_FORM,
       fullName: doctor.fullName,
@@ -87,8 +94,25 @@ export default function DoctorsPage() {
   }
 
   async function handleSave() {
-    if ((!editingDoctor && (!form.username || !form.password)) || !form.fullName || !form.departmentId || !form.specialization || !form.licenseNumber) {
-      toast.error('Please fill in all required fields'); return
+    const errors: Record<string, string> = {
+      username: !editingDoctor ? requiredError(form.username, 'Username') ?? '' : '',
+      password: !editingDoctor
+        ? !form.password ? 'Password is required.' : form.password.length < 8 ? 'Password must be at least 8 characters.' : ''
+        : '',
+      fullName: requiredError(form.fullName, 'Full name') ?? '',
+      departmentId: requiredError(form.departmentId, 'Department') ?? '',
+      specialization: requiredError(form.specialization, 'Specialization') ?? '',
+      licenseNumber: requiredError(form.licenseNumber, 'License number') ?? '',
+      email: emailError(form.email, !editingDoctor) ?? '',
+      phone: phoneError(form.phone) ?? '',
+      experienceYears: integerError(form.experienceYears, 'Experience', 0, 80, true) ?? '',
+      consultationFee: numberError(form.consultationFee, 'Consultation fee', 0, undefined, true) ?? '',
+      maxPatientsPerDay: integerError(form.maxPatientsPerDay, 'Max patients per day', 1, 500, true) ?? '',
+    }
+    setValidationErrors(errors)
+    if (Object.values(errors).some(Boolean)) {
+      toast.error('Please correct the highlighted fields')
+      return
     }
     setSaving(true)
     try {
@@ -204,16 +228,16 @@ export default function DoctorsPage() {
               {!editingDoctor && <section>
                 <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-2">Login</p>
                 <div className="grid grid-cols-2 gap-3">
-                  <div><Label>Username *</Label><Input value={form.username} onChange={(e) => set('username', e.target.value)} /></div>
-                  <div><Label>Password *</Label><Input type="password" value={form.password} onChange={(e) => set('password', e.target.value)} /></div>
-                  <div><Label>Full name *</Label><Input value={form.fullName} onChange={(e) => set('fullName', e.target.value)} /></div>
-                  <div><Label>Phone</Label><Input value={form.phone} onChange={(e) => set('phone', e.target.value)} /></div>
-                  <div className="col-span-2"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} /></div>
+                  <div><Label>Username *</Label><Input required maxLength={50} aria-invalid={!!validationErrors.username} error={!!validationErrors.username} value={form.username} onChange={(e) => set('username', e.target.value)} /><FieldError message={validationErrors.username} /></div>
+                  <div><Label>Password *</Label><Input required minLength={8} type="password" value={form.password} onChange={(e) => set('password', e.target.value)} /><FieldError message={validationErrors.password} /></div>
+                  <div><Label>Full name *</Label><Input required maxLength={150} aria-invalid={!!validationErrors.fullName} error={!!validationErrors.fullName} value={form.fullName} onChange={(e) => set('fullName', e.target.value)} /><FieldError message={validationErrors.fullName} /></div>
+                  <div><Label>Phone</Label><PhoneInput aria-invalid={!!validationErrors.phone} error={!!validationErrors.phone} value={form.phone} onChange={(value) => set('phone', value)} /><FieldError message={validationErrors.phone} /></div>
+                  <div className="col-span-2"><Label>Email *</Label><Input required type="email" maxLength={150} aria-invalid={!!validationErrors.email} error={!!validationErrors.email} value={form.email} onChange={(e) => set('email', e.target.value)} /><FieldError message={validationErrors.email} /></div>
                 </div>
               </section>}
               {editingDoctor && <section>
                 <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-2">Doctor details</p>
-                <div><Label>Full name *</Label><Input value={form.fullName} onChange={(e) => set('fullName', e.target.value)} /></div>
+                <div><Label>Full name *</Label><Input required maxLength={150} aria-invalid={!!validationErrors.fullName} error={!!validationErrors.fullName} value={form.fullName} onChange={(e) => set('fullName', e.target.value)} /><FieldError message={validationErrors.fullName} /></div>
               </section>}
               <section>
                 <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-2">Clinical profile</p>
@@ -223,14 +247,15 @@ export default function DoctorsPage() {
                     <Select value={form.departmentId} onValueChange={(v) => set('departmentId', v)} placeholder="Select department">
                       {departments.map(d => <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>)}
                     </Select>
+                    <FieldError message={validationErrors.departmentId} />
                   </div>
-                  <div><Label>Specialization *</Label><Input value={form.specialization} onChange={(e) => set('specialization', e.target.value)} placeholder="e.g. Interventional Cardiology" /></div>
-                  <div><Label>License number *</Label><Input value={form.licenseNumber} onChange={(e) => set('licenseNumber', e.target.value)} /></div>
-                  <div><Label>Qualifications</Label><Input value={form.qualifications} onChange={(e) => set('qualifications', e.target.value)} placeholder="MBBS, MD" /></div>
-                  <div><Label>Experience (years)</Label><Input type="number" min={0} value={form.experienceYears} onChange={(e) => set('experienceYears', e.target.value)} /></div>
-                  <div><Label>Consultation fee (₹)</Label><Input type="number" min={0} value={form.consultationFee} onChange={(e) => set('consultationFee', e.target.value)} /></div>
-                  <div><Label>Max patients / day</Label><Input type="number" min={1} value={form.maxPatientsPerDay} onChange={(e) => set('maxPatientsPerDay', e.target.value)} /></div>
-                  <div><Label>Office room</Label><Input value={form.officeRoomNumber} onChange={(e) => set('officeRoomNumber', e.target.value)} /></div>
+                  <div><Label>Specialization *</Label><Input required maxLength={100} aria-invalid={!!validationErrors.specialization} error={!!validationErrors.specialization} value={form.specialization} onChange={(e) => set('specialization', e.target.value)} placeholder="e.g. Interventional Cardiology" /><FieldError message={validationErrors.specialization} /></div>
+                  <div><Label>License number *</Label><Input required maxLength={100} aria-invalid={!!validationErrors.licenseNumber} error={!!validationErrors.licenseNumber} value={form.licenseNumber} onChange={(e) => set('licenseNumber', e.target.value)} /><FieldError message={validationErrors.licenseNumber} /></div>
+                  <div><Label>Qualifications</Label><Input maxLength={200} value={form.qualifications} onChange={(e) => set('qualifications', e.target.value)} placeholder="MBBS, MD" /></div>
+                  <div><Label>Experience (years)</Label><Input type="number" min={0} max={80} step={1} aria-invalid={!!validationErrors.experienceYears} error={!!validationErrors.experienceYears} value={form.experienceYears} onChange={(e) => set('experienceYears', e.target.value)} /><FieldError message={validationErrors.experienceYears} /></div>
+                  <div><Label>Consultation fee (₹)</Label><Input type="number" min={0} step="0.01" aria-invalid={!!validationErrors.consultationFee} error={!!validationErrors.consultationFee} value={form.consultationFee} onChange={(e) => set('consultationFee', e.target.value)} /><FieldError message={validationErrors.consultationFee} /></div>
+                  <div><Label>Max patients / day</Label><Input type="number" min={1} max={500} step={1} aria-invalid={!!validationErrors.maxPatientsPerDay} error={!!validationErrors.maxPatientsPerDay} value={form.maxPatientsPerDay} onChange={(e) => set('maxPatientsPerDay', e.target.value)} /><FieldError message={validationErrors.maxPatientsPerDay} /></div>
+                  <div><Label>Office room</Label><Input maxLength={50} value={form.officeRoomNumber} onChange={(e) => set('officeRoomNumber', e.target.value)} /></div>
                 </div>
               </section>
               <div className="flex justify-end gap-2 pt-1">

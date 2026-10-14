@@ -12,6 +12,7 @@ import type { OptionDto } from '@/types/api'
 import type { Bed } from '@/types/domain'
 import { apiErrorMessage } from '@/lib/api-client'
 import { toast } from 'sonner'
+import { FieldError } from '@/components/common/FieldError'
 
 export function AdmitPatientDialog({ open, onOpenChange, onAdmitted }: { open: boolean; onOpenChange: (o: boolean) => void; onAdmitted: () => void }) {
   const [patient, setPatient] = useState<OptionDto | null>(null)
@@ -22,6 +23,7 @@ export function AdmitPatientDialog({ open, onOpenChange, onAdmitted }: { open: b
   const [reason, setReason] = useState('')
   const [diagnosis, setDiagnosis] = useState('')
   const [saving, setSaving] = useState(false)
+  const [errors, setErrors] = useState({ patient: '', doctor: '', bedId: '' })
 
   useEffect(() => {
     if (open) ipdApi.availableBeds().then(setBeds).catch(() => {})
@@ -29,10 +31,17 @@ export function AdmitPatientDialog({ open, onOpenChange, onAdmitted }: { open: b
 
   function reset() {
     setPatient(null); setDoctor(null); setBedId(''); setAdmissionType('PLANNED'); setReason(''); setDiagnosis('')
+    setErrors({ patient: '', doctor: '', bedId: '' })
   }
 
   async function handleSubmit() {
-    if (!patient || !doctor || !bedId) { toast.error('Patient, doctor and bed are required'); return }
+    const nextErrors = {
+      patient: patient ? '' : 'Select a patient.',
+      doctor: doctor ? '' : 'Select an admitting doctor.',
+      bedId: bedId ? '' : 'Select an available bed.',
+    }
+    setErrors(nextErrors)
+    if (!patient || !doctor || !bedId) { toast.error('Please correct the highlighted fields'); return }
     setSaving(true)
     try {
       await ipdApi.admit({
@@ -55,18 +64,21 @@ export function AdmitPatientDialog({ open, onOpenChange, onAdmitted }: { open: b
         <div className="space-y-3">
           <div>
             <Label>Patient *</Label>
-            <AsyncCombobox value={patient} onChange={setPatient} fetchOptions={(q) => patientsApi.autocomplete(q)} placeholder="Search patient" />
+            <AsyncCombobox value={patient} onChange={(value) => { setPatient(value); setErrors(current => ({ ...current, patient: '' })) }} fetchOptions={(q) => patientsApi.autocomplete(q)} placeholder="Search patient" />
+            <FieldError message={errors.patient} />
           </div>
           <div>
             <Label>Admitting doctor *</Label>
-            <AsyncCombobox value={doctor} onChange={setDoctor} fetchOptions={(q) => doctorsApi.autocomplete(q)} placeholder="Search doctor" />
+            <AsyncCombobox value={doctor} onChange={(value) => { setDoctor(value); setErrors(current => ({ ...current, doctor: '' })) }} fetchOptions={(q) => doctorsApi.autocomplete(q)} placeholder="Search doctor" />
+            <FieldError message={errors.doctor} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Available bed *</Label>
-              <Select value={bedId} onValueChange={setBedId} placeholder={beds.length === 0 ? 'No beds available' : 'Select bed'}>
+              <Select value={bedId} onValueChange={(value) => { setBedId(value); setErrors(current => ({ ...current, bedId: '' })) }} className={errors.bedId ? 'border-danger-500' : undefined} placeholder={beds.length === 0 ? 'No beds available' : 'Select bed'}>
                 {beds.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.wardName} — {b.bedNumber}</SelectItem>)}
               </Select>
+              <FieldError message={errors.bedId} />
             </div>
             <div>
               <Label>Admission type</Label>
@@ -77,8 +89,8 @@ export function AdmitPatientDialog({ open, onOpenChange, onAdmitted }: { open: b
               </Select>
             </div>
           </div>
-          <div><Label>Reason for admission</Label><Textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} /></div>
-          <div><Label>Provisional diagnosis</Label><Textarea value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} rows={2} /></div>
+          <div><Label>Reason for admission</Label><Textarea maxLength={2000} value={reason} onChange={(e) => setReason(e.target.value)} rows={2} /></div>
+          <div><Label>Provisional diagnosis</Label><Textarea maxLength={2000} value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} rows={2} /></div>
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button onClick={handleSubmit} loading={saving}>Admit patient</Button>

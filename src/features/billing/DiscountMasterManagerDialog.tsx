@@ -10,6 +10,7 @@ import { billingApi } from '@/lib/services/billing'
 import type { DiscountMaster } from '@/types/domain'
 import { apiErrorMessage } from '@/lib/api-client'
 import { toast } from 'sonner'
+import { FieldError } from '@/components/common/FieldError'
 
 export function DiscountMasterManagerDialog({ open, onOpenChange }: {
   open: boolean
@@ -21,6 +22,7 @@ export function DiscountMasterManagerDialog({ open, onOpenChange }: {
   const [percentage, setPercentage] = useState('')
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [errors, setErrors] = useState({ name: '', percentage: '' })
 
   async function load() {
     setLoading(true)
@@ -39,11 +41,17 @@ export function DiscountMasterManagerDialog({ open, onOpenChange }: {
     setEditing(null)
     setName('')
     setPercentage('')
+    setErrors({ name: '', percentage: '' })
   }
 
   async function save() {
     const rate = Number(percentage)
-    if (!name.trim() || !Number.isFinite(rate) || rate <= 0 || rate > 100) {
+    const nextErrors = {
+      name: name.trim() ? '' : 'Discount name is required.',
+      percentage: Number.isFinite(rate) && rate > 0 && rate <= 100 ? '' : 'Enter a percentage greater than 0 and no more than 100.',
+    }
+    setErrors(nextErrors)
+    if (Object.values(nextErrors).some(Boolean)) {
       toast.error('Enter a name and a percentage greater than 0 and no more than 100')
       return
     }
@@ -100,8 +108,8 @@ export function DiscountMasterManagerDialog({ open, onOpenChange }: {
           <section className="space-y-3 rounded-lg border border-border p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">{editing ? 'Edit discount' : 'Add discount'}</p>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>Discount name *</Label><Input value={name} onChange={event => setName(event.target.value)} placeholder="Senior citizen" /></div>
-              <div><Label>Percentage *</Label><Input type="number" min={0.01} max={100} step="0.01" value={percentage} onChange={event => setPercentage(event.target.value)} placeholder="10" /></div>
+              <div><Label>Discount name *</Label><Input required maxLength={100} aria-invalid={!!errors.name} error={!!errors.name} value={name} onChange={event => { setName(event.target.value); setErrors(current => ({ ...current, name: '' })) }} placeholder="Senior citizen" /><FieldError message={errors.name} /></div>
+              <div><Label>Percentage *</Label><Input required type="number" min={0.01} max={100} step="0.01" aria-invalid={!!errors.percentage} error={!!errors.percentage} value={percentage} onChange={event => { setPercentage(event.target.value); setErrors(current => ({ ...current, percentage: '' })) }} placeholder="10" /><FieldError message={errors.percentage} /></div>
             </div>
             <div className="flex justify-end gap-2">
               {editing && <Button variant="outline" onClick={reset}>Cancel edit</Button>}

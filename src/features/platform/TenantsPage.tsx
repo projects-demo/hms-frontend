@@ -19,6 +19,9 @@ import type { Tenant, TenantStatus } from '@/types/domain'
 import { formatDate } from '@/lib/utils'
 import { apiErrorMessage } from '@/lib/api-client'
 import { toast } from 'sonner'
+import { PhoneInput } from '@/components/common/PhoneInput'
+import { FieldError } from '@/components/common/FieldError'
+import { emailError, phoneError, requiredError } from '@/lib/validation'
 
 const EMPTY_FORM: OnboardTenantRequest = {
   tenantCode: '', hospitalName: '', legalName: '', contactEmail: '', contactPhone: '',
@@ -31,6 +34,7 @@ export default function TenantsPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [form, setForm] = useState<OnboardTenantRequest>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   const [suspendTarget, setSuspendTarget] = useState<Tenant | null>(null)
   const [deactivateTarget, setDeactivateTarget] = useState<Tenant | null>(null)
@@ -43,14 +47,23 @@ export default function TenantsPage() {
 
   function set<K extends keyof OnboardTenantRequest>(key: K, value: string) {
     setForm(f => ({ ...f, [key]: value }))
+    setErrors(current => ({ ...current, [key]: '' }))
   }
 
   async function handleOnboard() {
-    if (!form.tenantCode || !form.hospitalName || !form.contactEmail || !form.adminUsername || !form.adminFullName || !form.adminPassword) {
-      toast.error('Please fill in all required fields'); return
+    const nextErrors = {
+      tenantCode: requiredError(form.tenantCode, 'Tenant code') ?? '',
+      hospitalName: requiredError(form.hospitalName, 'Hospital name') ?? '',
+      contactEmail: emailError(form.contactEmail, true) ?? '',
+      contactPhone: phoneError(form.contactPhone ?? '') ?? '',
+      adminUsername: requiredError(form.adminUsername, 'Username') ?? '',
+      adminFullName: requiredError(form.adminFullName, 'Full name') ?? '',
+      adminPassword: !form.adminPassword ? 'Password is required.' : form.adminPassword.length < 8 ? 'Password must be at least 8 characters.' : '',
     }
-    if (form.adminPassword.length < 8) {
-      toast.error('Admin password must be at least 8 characters'); return
+    setErrors(nextErrors)
+    if (Object.values(nextErrors).some(Boolean)) {
+      toast.error('Please correct the highlighted fields')
+      return
     }
     setSaving(true)
     try {
@@ -58,6 +71,7 @@ export default function TenantsPage() {
       toast.success(`${tenant.hospitalName} onboarded - schema ${tenant.schemaName} is ready`)
       setCreateOpen(false)
       setForm(EMPTY_FORM)
+      setErrors({})
       reload()
     } catch (err) {
       toast.error(apiErrorMessage(err))
@@ -179,26 +193,28 @@ export default function TenantsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>Tenant code *</Label>
-                  <Input value={form.tenantCode} onChange={(e) => set('tenantCode', e.target.value)} placeholder="e.g. motherland-noida" />
+                  <Input required maxLength={40} aria-invalid={!!errors.tenantCode} error={!!errors.tenantCode} value={form.tenantCode} onChange={(e) => set('tenantCode', e.target.value)} placeholder="e.g. motherland-noida" />
+                  <FieldError message={errors.tenantCode} />
                 </div>
-                <div><Label>Hospital name *</Label><Input value={form.hospitalName} onChange={(e) => set('hospitalName', e.target.value)} /></div>
-                <div><Label>Legal name</Label><Input value={form.legalName} onChange={(e) => set('legalName', e.target.value)} /></div>
-                <div><Label>Contact email *</Label><Input type="email" value={form.contactEmail} onChange={(e) => set('contactEmail', e.target.value)} /></div>
-                <div><Label>Contact phone</Label><Input value={form.contactPhone} onChange={(e) => set('contactPhone', e.target.value)} /></div>
-                <div><Label>Postal code</Label><Input value={form.postalCode} onChange={(e) => set('postalCode', e.target.value)} /></div>
-                <div className="col-span-2"><Label>Address</Label><Input value={form.addressLine1} onChange={(e) => set('addressLine1', e.target.value)} /></div>
-                <div><Label>City</Label><Input value={form.city} onChange={(e) => set('city', e.target.value)} /></div>
-                <div><Label>State</Label><Input value={form.state} onChange={(e) => set('state', e.target.value)} /></div>
+                <div><Label>Hospital name *</Label><Input required maxLength={200} aria-invalid={!!errors.hospitalName} error={!!errors.hospitalName} value={form.hospitalName} onChange={(e) => set('hospitalName', e.target.value)} /><FieldError message={errors.hospitalName} /></div>
+                <div><Label>Legal name</Label><Input maxLength={200} value={form.legalName} onChange={(e) => set('legalName', e.target.value)} /></div>
+                <div><Label>Contact email *</Label><Input required type="email" aria-invalid={!!errors.contactEmail} error={!!errors.contactEmail} value={form.contactEmail} onChange={(e) => set('contactEmail', e.target.value)} /><FieldError message={errors.contactEmail} /></div>
+                <div><Label>Contact phone</Label><PhoneInput aria-invalid={!!errors.contactPhone} error={!!errors.contactPhone} value={form.contactPhone ?? ''} onChange={(value) => set('contactPhone', value)} /><FieldError message={errors.contactPhone} /></div>
+                <div><Label>Postal code</Label><Input maxLength={20} value={form.postalCode} onChange={(e) => set('postalCode', e.target.value)} /></div>
+                <div className="col-span-2"><Label>Address</Label><Input maxLength={255} value={form.addressLine1} onChange={(e) => set('addressLine1', e.target.value)} /></div>
+                <div><Label>City</Label><Input maxLength={100} value={form.city} onChange={(e) => set('city', e.target.value)} /></div>
+                <div><Label>State</Label><Input maxLength={100} value={form.state} onChange={(e) => set('state', e.target.value)} /></div>
               </div>
             </section>
             <section>
               <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-2">First admin login</p>
               <div className="grid grid-cols-2 gap-3">
-                <div><Label>Username *</Label><Input value={form.adminUsername} onChange={(e) => set('adminUsername', e.target.value)} /></div>
-                <div><Label>Full name *</Label><Input value={form.adminFullName} onChange={(e) => set('adminFullName', e.target.value)} /></div>
+                <div><Label>Username *</Label><Input required aria-invalid={!!errors.adminUsername} error={!!errors.adminUsername} value={form.adminUsername} onChange={(e) => set('adminUsername', e.target.value)} /><FieldError message={errors.adminUsername} /></div>
+                <div><Label>Full name *</Label><Input required aria-invalid={!!errors.adminFullName} error={!!errors.adminFullName} value={form.adminFullName} onChange={(e) => set('adminFullName', e.target.value)} /><FieldError message={errors.adminFullName} /></div>
                 <div className="col-span-2">
                   <Label>Password * <span className="text-ink-400 font-normal">(min. 8 characters)</span></Label>
-                  <Input type="password" value={form.adminPassword} onChange={(e) => set('adminPassword', e.target.value)} />
+                  <Input required minLength={8} type="password" aria-invalid={!!errors.adminPassword} error={!!errors.adminPassword} value={form.adminPassword} onChange={(e) => set('adminPassword', e.target.value)} />
+                  <FieldError message={errors.adminPassword} />
                 </div>
               </div>
             </section>

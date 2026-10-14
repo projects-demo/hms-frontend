@@ -24,6 +24,7 @@ import { AdmitPatientDialog } from './AdmitPatientDialog'
 import { DischargeDialog } from './DischargeDialog'
 import { useAuth } from '@/features/auth/AuthContext'
 import { ROLE_GROUPS, hasRole } from '@/lib/permissions'
+import { FieldError } from '@/components/common/FieldError'
 
 export default function IpdPage() {
   const [searchParams] = useSearchParams()
@@ -124,6 +125,7 @@ function WardsTab() {
   const [bedNumber, setBedNumber] = useState('')
   const [dailyRate, setDailyRate] = useState('')
   const [saving, setSaving] = useState(false)
+  const [formErrors, setFormErrors] = useState({ wardName: '', bedWardId: '', bedNumber: '', dailyRate: '' })
 
   const { session } = useAuth()
   const isAdmin = session?.role === 'HOSPITAL_ADMIN'
@@ -132,23 +134,31 @@ function WardsTab() {
   const { data: beds, loading: loadingBeds, reload: reloadBeds } = usePaginated((page, size) => ipdApi.listBeds({ page, size }), [], 50)
 
   async function createWard() {
-    if (!wardName.trim()) { toast.error('Ward name is required'); return }
+    if (!wardName.trim()) { setFormErrors(current => ({ ...current, wardName: 'Ward name is required.' })); toast.error('Please correct the highlighted field'); return }
+    if (wardName.trim().length > 100) { setFormErrors(current => ({ ...current, wardName: 'Ward name must be 100 characters or fewer.' })); return }
     setSaving(true)
     try {
       await ipdApi.createWard({ name: wardName, wardType, floor: floor || undefined })
       toast.success('Ward created')
-      setWardOpen(false); setWardName(''); setFloor('')
+      setWardOpen(false); setWardName(''); setFloor(''); setFormErrors(current => ({ ...current, wardName: '' }))
       reloadWards()
     } catch (err) { toast.error(apiErrorMessage(err)) } finally { setSaving(false) }
   }
 
   async function createBed() {
-    if (!bedWardId || !bedNumber.trim()) { toast.error('Ward and bed number are required'); return }
+    const rate = dailyRate.trim() ? Number(dailyRate) : 0
+    const nextErrors = {
+      bedWardId: bedWardId ? '' : 'Select a ward.',
+      bedNumber: bedNumber.trim() ? '' : 'Bed number is required.',
+      dailyRate: Number.isFinite(rate) && rate >= 0 ? '' : 'Daily rate must be a non-negative amount.',
+    }
+    setFormErrors(current => ({ ...current, ...nextErrors }))
+    if (Object.values(nextErrors).some(Boolean)) { toast.error('Please correct the highlighted fields'); return }
     setSaving(true)
     try {
-      await ipdApi.createBed({ wardId: Number(bedWardId), bedNumber, dailyRate: Number(dailyRate) || 0 })
+      await ipdApi.createBed({ wardId: Number(bedWardId), bedNumber: bedNumber.trim(), dailyRate: rate })
       toast.success('Bed added')
-      setBedOpen(false); setBedNumber(''); setDailyRate('')
+      setBedOpen(false); setBedNumber(''); setDailyRate(''); setFormErrors(current => ({ ...current, bedWardId: '', bedNumber: '', dailyRate: '' }))
       reloadBeds()
     } catch (err) { toast.error(apiErrorMessage(err)) } finally { setSaving(false) }
   }
@@ -198,7 +208,7 @@ function WardsTab() {
           <Dialog open={wardOpen} onOpenChange={setWardOpen}>
             <DialogContent title="Add ward">
               <div className="space-y-3">
-                <div><Label>Name *</Label><Input value={wardName} onChange={(e) => setWardName(e.target.value)} placeholder="e.g. ICU Ward" /></div>
+                <div><Label>Name *</Label><Input required maxLength={100} aria-invalid={!!formErrors.wardName} error={!!formErrors.wardName} value={wardName} onChange={(e) => { setWardName(e.target.value); setFormErrors(current => ({ ...current, wardName: '' })) }} placeholder="e.g. ICU Ward" /><FieldError message={formErrors.wardName} /></div>
                 <div>
                   <Label>Type</Label>
                   <Select value={wardType} onValueChange={setWardType}>
@@ -209,7 +219,7 @@ function WardsTab() {
                     <SelectItem value="EMERGENCY">Emergency</SelectItem>
                   </Select>
                 </div>
-                <div><Label>Floor</Label><Input value={floor} onChange={(e) => setFloor(e.target.value)} /></div>
+                <div><Label>Floor</Label><Input maxLength={50} value={floor} onChange={(e) => setFloor(e.target.value)} /></div>
                 <div className="flex justify-end gap-2 pt-1">
                   <Button variant="outline" onClick={() => setWardOpen(false)}>Cancel</Button>
                   <Button onClick={createWard} loading={saving}>Create</Button>
@@ -223,12 +233,13 @@ function WardsTab() {
               <div className="space-y-3">
                 <div>
                   <Label>Ward *</Label>
-                  <Select value={bedWardId} onValueChange={setBedWardId} placeholder="Select ward">
+                  <Select value={bedWardId} onValueChange={(value) => { setBedWardId(value); setFormErrors(current => ({ ...current, bedWardId: '' })) }} placeholder="Select ward" className={formErrors.bedWardId ? 'border-danger-500' : undefined}>
                     {(wards?.content ?? []).map(w => <SelectItem key={w.id} value={String(w.id)}>{w.name}</SelectItem>)}
                   </Select>
+                  <FieldError message={formErrors.bedWardId} />
                 </div>
-                <div><Label>Bed number *</Label><Input value={bedNumber} onChange={(e) => setBedNumber(e.target.value)} placeholder="e.g. B-101" /></div>
-                <div><Label>Daily rate (₹)</Label><Input type="number" value={dailyRate} onChange={(e) => setDailyRate(e.target.value)} /></div>
+                <div><Label>Bed number *</Label><Input required maxLength={30} aria-invalid={!!formErrors.bedNumber} error={!!formErrors.bedNumber} value={bedNumber} onChange={(e) => { setBedNumber(e.target.value); setFormErrors(current => ({ ...current, bedNumber: '' })) }} placeholder="e.g. B-101" /><FieldError message={formErrors.bedNumber} /></div>
+                <div><Label>Daily rate (₹)</Label><Input type="number" min={0} step="0.01" aria-invalid={!!formErrors.dailyRate} error={!!formErrors.dailyRate} value={dailyRate} onChange={(e) => { setDailyRate(e.target.value); setFormErrors(current => ({ ...current, dailyRate: '' })) }} /><FieldError message={formErrors.dailyRate} /></div>
                 <div className="flex justify-end gap-2 pt-1">
                   <Button variant="outline" onClick={() => setBedOpen(false)}>Cancel</Button>
                   <Button onClick={createBed} loading={saving}>Add bed</Button>

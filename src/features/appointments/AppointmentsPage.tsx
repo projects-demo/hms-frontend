@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, CalendarClock, Ban, Receipt } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '@/components/common/PageHeader'
@@ -14,11 +14,12 @@ import { Select, SelectItem } from '@/components/ui/Select'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { usePaginated } from '@/hooks/usePaginated'
 import { appointmentsApi } from '@/lib/services/appointments'
+import { doctorsApi } from '@/lib/services/doctors'
 import { billingApi } from '@/lib/services/billing'
 import { patientsApi } from '@/lib/services/patients'
-import type { Appointment, AppointmentStatus } from '@/types/domain'
+import type { Appointment, AppointmentStatus, Doctor } from '@/types/domain'
 import type { OptionDto } from '@/types/api'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatDate, formatTime } from '@/lib/utils'
 import { apiErrorMessage } from '@/lib/api-client'
 import { toast } from 'sonner'
 import { BookAppointmentDialog } from './BookAppointmentDialog'
@@ -35,6 +36,8 @@ export default function AppointmentsPage() {
   const [searchParams] = useSearchParams()
   const [date, setDate] = useState(searchParams.get('date') ?? '')
   const [status, setStatus] = useState<string>(searchParams.get('status') ?? 'ALL')
+  const [doctorId, setDoctorId] = useState(searchParams.get('doctorId') ?? 'ALL')
+  const [doctors, setDoctors] = useState<Doctor[]>([])
   const [bookOpen, setBookOpen] = useState(false)
   const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null)
   const [cancelling, setCancelling] = useState(false)
@@ -48,13 +51,22 @@ export default function AppointmentsPage() {
   const canBookOrCheckIn = hasRole(session?.role, ROLE_GROUPS.FRONT_DESK)
   const canBill = hasRole(session?.role, ROLE_GROUPS.BILLING)
 
+  useEffect(() => {
+    let mounted = true
+    doctorsApi.list({ size: 100 })
+      .then(result => { if (mounted) setDoctors(result.content.filter(doctor => doctor.active)) })
+      .catch(err => toast.error(apiErrorMessage(err)))
+    return () => { mounted = false }
+  }, [])
+
   const { data, loading, page, setPage, reload } = usePaginated(
     (page, size) => appointmentsApi.search({
+      doctorId: doctorId === 'ALL' ? undefined : Number(doctorId),
       date: date || undefined,
       status: status === 'ALL' ? undefined : (status as AppointmentStatus),
       page, size,
     }),
-    [date, status],
+    [date, status, doctorId],
   )
 
   async function handleCheckIn(id: number) {
@@ -117,12 +129,18 @@ export default function AppointmentsPage() {
       <Card>
         <div className="p-4 border-b border-border flex flex-wrap items-center gap-2">
           <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-44" />
+          <Select value={doctorId} onValueChange={setDoctorId} className="w-56">
+            <SelectItem value="ALL">All doctors</SelectItem>
+            {doctors.map(doctor => (
+              <SelectItem key={doctor.id} value={String(doctor.id)}>{doctor.fullName}</SelectItem>
+            ))}
+          </Select>
           <Select value={status} onValueChange={setStatus} className="w-48">
             <SelectItem value="ALL">All statuses</SelectItem>
             {STATUSES.map(s => <SelectItem key={s} value={s}>{s.replace(/_/g, ' ')}</SelectItem>)}
           </Select>
-          {(date || status !== 'ALL') && (
-            <Button variant="ghost" size="sm" onClick={() => { setDate(''); setStatus('ALL') }}>Clear filters</Button>
+          {(date || doctorId !== 'ALL' || status !== 'ALL') && (
+            <Button variant="ghost" size="sm" onClick={() => { setDate(''); setDoctorId('ALL'); setStatus('ALL') }}>Clear filters</Button>
           )}
         </div>
 
@@ -134,12 +152,20 @@ export default function AppointmentsPage() {
         ) : (
           <>
             <Table>
-              <THead><TR><TH>Code</TH><TH>Date</TH><TH>Doctor</TH><TH>Queue No.</TH><TH>Type</TH><TH>Fee</TH><TH>Payment</TH><TH>Status</TH><TH></TH></TR></THead>
+              <THead><TR><TH>Code</TH><TH>Patient</TH><TH>Date</TH><TH>Doctor</TH><TH>Queue No.</TH><TH>Type</TH><TH>Fee</TH><TH>Payment</TH><TH>Status</TH><TH></TH></TR></THead>
               <TBody>
                 {data.content.map(a => (
                   <TR key={a.id}>
                     <TD className="font-mono text-xs cursor-pointer" onClick={() => navigate(`/patients/${a.patientId}`)}>{a.appointmentCode}</TD>
-                    <TD>{formatDate(a.appointmentDate)}</TD>
+                    <TD className="font-medium text-ink-900 cursor-pointer" onClick={() => navigate(`/patients/${a.patientId}`)}>{a.patientName || `Patient #${a.patientId}`}</TD>
+                    <TD>
+                      <div>{formatDate(a.appointmentDate)}</div>
+                      <div className="text-xs text-ink-500">
+                        {a.slotStartTime && a.slotEndTime
+                          ? `${formatTime(a.slotStartTime)} – ${formatTime(a.slotEndTime)}`
+                          : 'Time not set'}
+                      </div>
+                    </TD>
                     <TD>{a.doctorName || '—'}</TD>
                     <TD className="font-mono text-xs">{a.queueNumber == null ? '—' : `Q-${String(a.queueNumber).padStart(2, '0')}`}</TD>
                     <TD>{a.appointmentType}</TD>

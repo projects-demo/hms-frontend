@@ -97,9 +97,12 @@ export interface Appointment {
   id: number
   appointmentCode: string
   patientId: number
+  patientName: string | null
   doctorId: number
   doctorName: string | null
   slotId: number | null
+  slotStartTime: string | null
+  slotEndTime: string | null
   queueNumber: number | null
   appointmentDate: string
   appointmentType: 'NEW' | 'FOLLOWUP'
@@ -225,8 +228,13 @@ export interface Bill {
   id: number
   billNumber: string
   patientId: number
+  patientName: string | null
+  patientCode: string | null
+  patientPhone: string | null
   admissionId: number | null
   appointmentId: number | null
+  appointmentCode: string | null
+  doctorName: string | null
   billType: BillType
   status: BillStatus
   subtotalAmount: number
@@ -238,7 +246,23 @@ export interface Bill {
   paidAmount: number
   balanceAmount: number
   finalizedAt: string | null
-  items: { id: number; description: string; quantity: number; unitPrice: number; amount: number }[]
+  items: { id: number; chargeMasterId: number | null; description: string; quantity: number; unitPrice: number; amount: number }[]
+}
+
+export interface PaymentReceipt {
+  id: number
+  receiptNumber: string
+  billId: number
+  billNumber: string
+  patientId: number
+  patientName: string
+  patientCode: string
+  patientPhone: string
+  appointmentId: number | null
+  appointmentCode: string | null
+  amount: number
+  paymentMode: string
+  receivedAt: string
 }
 
 export interface DiscountMaster {

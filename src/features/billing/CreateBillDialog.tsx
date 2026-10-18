@@ -242,7 +242,11 @@ export function CreateBillDialog({ open, onOpenChange, defaultPatient, defaultAp
                 {patient?.subLabel && <span className="ml-2 text-xs text-ink-400">{patient.subLabel}</span>}
                 {linkedAppointment && !defaultAppointment && (
                   <div className="mt-1 flex items-center justify-between gap-2">
-                    <span className="text-xs text-ink-500">Linked to {linkedAppointment.appointmentCode}</span>
+                    <span className="text-xs text-ink-500">
+                      Linked to {linkedAppointment.appointmentCode}
+                      {' · '}Dr. {linkedAppointment.doctorName || 'Self'}
+                      {' · '}Fee: {linkedAppointment.freeVisit ? 'Free' : formatCurrency(linkedAppointment.feeAmount)}
+                    </span>
                     <Button type="button" size="sm" variant="ghost" onClick={() => { setLinkedAppointment(null); setPatient(null); setAppointmentCode('') }}>Change</Button>
                   </div>
                 )}
@@ -269,7 +273,7 @@ export function CreateBillDialog({ open, onOpenChange, defaultPatient, defaultAp
                     </div>
                     <FieldError message={appointmentSearchError} />
                     {linkedAppointment && !bill && (
-                      <p className="text-xs text-success-600">Linked to {linkedAppointment.appointmentCode} · {linkedAppointment.doctorName || 'Doctor'} · {linkedAppointment.appointmentDate}</p>
+                      <p className="text-xs text-success-600">Linked to {linkedAppointment.appointmentCode} · Dr. {linkedAppointment.doctorName || 'Self'} · Fee: {linkedAppointment.freeVisit ? 'Free' : formatCurrency(linkedAppointment.feeAmount)}</p>
                     )}
                   </div>
                 )}

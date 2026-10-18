@@ -352,6 +352,7 @@ export default function BillDetailPage() {
             <div><strong>Patient code</strong><span>{patient?.patientCode || '—'}</span></div>
             <div><strong>Phone</strong><span>{patient?.primaryPhone || '—'}</span></div>
             <div><strong>Bill type</strong><span>{bill.billType}</span></div>
+            <div><strong>Doctor</strong><span>{bill.doctorName || 'Self'}</span></div>
             <div><strong>Invoice date</strong><span>{bill.finalizedAt ? formatDateTime(bill.finalizedAt) : formatDateTime(new Date().toISOString())}</span></div>
             <div><strong>Status</strong><span>{bill.status === 'CANCELLED' ? 'VOIDED' : 'SUBMITTED'}</span></div>
           </div>

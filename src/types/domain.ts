@@ -245,6 +245,7 @@ export interface Bill {
   totalAmount: number
   paidAmount: number
   balanceAmount: number
+  comments: string | null
   finalizedAt: string | null
   items: { id: number; chargeMasterId: number | null; description: string; quantity: number; unitPrice: number; amount: number }[]
 }

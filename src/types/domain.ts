@@ -14,6 +14,8 @@ export interface LoginResponse {
   role: Role
   tenantCode: string
   hospitalName: string | null
+  /** Set when the logged-in user is a DOCTOR — their doctor profile id */
+  doctorId?: number
 }
 
 export interface Department {
@@ -98,6 +100,9 @@ export interface Appointment {
   appointmentCode: string
   patientId: number
   patientName: string | null
+  patientAge: number | null
+  patientGender: string | null
+  patientPhone: string | null
   doctorId: number
   doctorName: string | null
   slotId: number | null
@@ -235,6 +240,8 @@ export interface Bill {
   appointmentId: number | null
   appointmentCode: string | null
   doctorName: string | null
+  /** Advisor type: INTERNAL_DOCTOR | SELF | EXTERNAL_DOCTOR */
+  advisorType: string | null
   billType: BillType
   status: BillStatus
   subtotalAmount: number
@@ -247,6 +254,8 @@ export interface Bill {
   balanceAmount: number
   comments: string | null
   finalizedAt: string | null
+  /** ISO datetime when the bill was created */
+  createdAt: string | null
   items: { id: number; chargeMasterId: number | null; description: string; quantity: number; unitPrice: number; amount: number }[]
 }
 

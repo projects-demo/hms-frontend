@@ -19,9 +19,15 @@ export function formatDate(value: string | null | undefined): string {
 
 export function formatDateTime(value: string | null | undefined): string {
   if (!value) return '—'
+  // If the backend returns a LocalDateTime without timezone suffix (e.g. "2026-10-18T15:44:00"),
+  // the browser interprets it as LOCAL time, which is correct.
+  // If it has a 'Z' suffix it is UTC and toLocaleString converts to local zone automatically.
   const d = new Date(value)
   if (isNaN(d.getTime())) return value
-  return d.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: true,
+  })
 }
 
 export function formatTime(value: string | null | undefined): string {

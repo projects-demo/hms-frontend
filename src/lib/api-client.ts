@@ -13,6 +13,11 @@ export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
   'http://localhost:8080'
 
+// ─── Per-tab session keys ────────────────────────────────────────────────────
+// We use sessionStorage (scoped to each browser tab) so that opening admin in
+// one tab and nurse in another tab keeps their sessions completely isolated.
+// The only data kept in localStorage is the refresh token for the *current*
+// session so the page survives a manual F5, but a full new tab starts fresh.
 const TOKEN_KEY = 'hms.accessToken'
 const REFRESH_KEY = 'hms.refreshToken'
 const SESSION_KEY = 'hms.session' // tenantCode, hospitalName, username, fullName, role
@@ -24,25 +29,30 @@ export interface StoredSession {
   fullName: string
   role: string
   platform: boolean
+  // Backend user id — stored so doctor / nurse views can scope queries
+  userId?: number
+  // For doctors: the doctor profile id (used to filter appointments/consultations)
+  doctorId?: number
 }
 
+/** Thin wrapper around sessionStorage so each browser tab has its own session. */
 export const authStorage = {
-  getAccessToken: () => localStorage.getItem(TOKEN_KEY),
-  getRefreshToken: () => localStorage.getItem(REFRESH_KEY),
+  getAccessToken: () => sessionStorage.getItem(TOKEN_KEY),
+  getRefreshToken: () => sessionStorage.getItem(REFRESH_KEY),
   getSession: (): StoredSession | null => {
-    const raw = localStorage.getItem(SESSION_KEY)
+    const raw = sessionStorage.getItem(SESSION_KEY)
     return raw ? JSON.parse(raw) : null
   },
   setSession: (accessToken: string, refreshToken: string, session: StoredSession) => {
-    localStorage.setItem(TOKEN_KEY, accessToken)
-    localStorage.setItem(REFRESH_KEY, refreshToken)
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session))
+    sessionStorage.setItem(TOKEN_KEY, accessToken)
+    sessionStorage.setItem(REFRESH_KEY, refreshToken)
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session))
   },
-  setAccessToken: (accessToken: string) => localStorage.setItem(TOKEN_KEY, accessToken),
+  setAccessToken: (accessToken: string) => sessionStorage.setItem(TOKEN_KEY, accessToken),
   clear: () => {
-    localStorage.removeItem(TOKEN_KEY)
-    localStorage.removeItem(REFRESH_KEY)
-    localStorage.removeItem(SESSION_KEY)
+    sessionStorage.removeItem(TOKEN_KEY)
+    sessionStorage.removeItem(REFRESH_KEY)
+    sessionStorage.removeItem(SESSION_KEY)
   },
 }
 
@@ -89,7 +99,7 @@ async function refreshAccessToken(): Promise<string | null> {
     )
     const { accessToken, refreshToken: newRefresh } = res.data.data
     authStorage.setAccessToken(accessToken)
-    localStorage.setItem(REFRESH_KEY, newRefresh)
+    sessionStorage.setItem(REFRESH_KEY, newRefresh)
     return accessToken
   } catch {
     return null

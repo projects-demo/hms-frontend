@@ -91,7 +91,7 @@ export default function BillingPage() {
         ) : (
           <>
             <Table>
-              <THead><TR><TH>Bill #</TH><TH>Patient</TH><TH>Patient ID</TH><TH>Mobile</TH><TH>Doctor</TH><TH>OPD ID</TH><TH>Type</TH><TH>Total</TH><TH>Paid</TH><TH>Balance</TH><TH>Status</TH></TR></THead>
+              <THead><TR><TH>Bill #</TH><TH>Patient</TH><TH>Patient ID</TH><TH>Mobile</TH><TH>Advisor / Doctor</TH><TH>OPD ID</TH><TH>Type</TH><TH>Date &amp; Time</TH><TH>Total</TH><TH>Paid</TH><TH>Balance</TH><TH>Status</TH></TR></THead>
               <TBody>
                 {data.content.map(b => (
                   <TR key={b.id} className="cursor-pointer" onClick={() => navigate(`/billing/${b.id}`)}>
@@ -104,9 +104,20 @@ export default function BillingPage() {
                     </TD>
                     <TD className="font-mono text-xs">{b.patientId}</TD>
                     <TD>{b.patientPhone || '—'}</TD>
-                    <TD>{b.doctorName || '—'}</TD>
+                    <TD>
+                      {b.advisorType === 'INTERNAL_DOCTOR' ? (
+                        <span className="text-primary-700">{b.doctorName || '—'}</span>
+                      ) : b.advisorType === 'EXTERNAL_DOCTOR' ? (
+                        <span className="text-ink-500">Ext: {b.doctorName || '—'}</span>
+                      ) : (
+                        <span className="text-ink-400">Self</span>
+                      )}
+                    </TD>
                     <TD className="font-mono text-xs">{b.appointmentCode || '—'}</TD>
                     <TD>{b.billType}</TD>
+                    <TD className="whitespace-nowrap text-xs">
+                      {b.createdAt ? formatDateTime(b.createdAt) : '—'}
+                    </TD>
                     <TD>{formatCurrency(b.totalAmount)}</TD>
                     <TD>{formatCurrency(b.paidAmount)}</TD>
                     <TD className={b.balanceAmount > 0 ? 'text-danger-600 font-medium' : 'text-success-600'}>{formatCurrency(b.balanceAmount)}</TD>

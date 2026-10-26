@@ -26,6 +26,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       fullName: res.fullName,
       role: res.role,
       platform: false,
+      userId: res.userId,
+      doctorId: res.doctorId,
     }
     authStorage.setSession(res.accessToken, res.refreshToken, newSession)
     setSession(newSession)

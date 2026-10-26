@@ -8,10 +8,11 @@ import type { Role } from '@/types/domain'
 export const ROLE_GROUPS = {
   ADMIN_ONLY: ['HOSPITAL_ADMIN'] as Role[],
   ALL_STAFF: ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST', 'BILLING_STAFF', 'PHARMACIST', 'LAB_TECH'] as Role[],
-  PATIENT_ACCESS: ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST', 'BILLING_STAFF', 'PHARMACIST'] as Role[],
-  DOCTOR_DIRECTORY: ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST'] as Role[],
+  PATIENT_ACCESS: ['HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST', 'BILLING_STAFF', 'PHARMACIST'] as Role[],
+  DOCTOR_DIRECTORY: ['HOSPITAL_ADMIN', 'DOCTOR', 'RECEPTIONIST'] as Role[],
   FRONT_DESK: ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST'] as Role[],
-  APPOINTMENTS: ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST', 'BILLING_STAFF'] as Role[],
+  // Appointments menu: nurses & doctors do NOT see "Appointments" nav (they use OPD/IPD)
+  APPOINTMENTS: ['HOSPITAL_ADMIN', 'RECEPTIONIST', 'BILLING_STAFF'] as Role[],
   CLINICAL: ['HOSPITAL_ADMIN', 'DOCTOR', 'NURSE'] as Role[],
   DOCTOR_NURSE: ['DOCTOR', 'NURSE'] as Role[],
   DOCTOR_ONLY: ['DOCTOR'] as Role[],
@@ -25,11 +26,14 @@ export const ROLE_GROUPS = {
 /** Which roles can see each top-level route - used by Sidebar/MobileNav and route guards. */
 export const NAV_ACCESS: Record<string, Role[]> = {
   '/': ROLE_GROUPS.ALL_STAFF,
+  // Patients: nurses and doctors do not see Patient menu (req 9, 11)
   '/patients': ROLE_GROUPS.PATIENT_ACCESS,
-  '/doctors': ROLE_GROUPS.DOCTOR_DIRECTORY,
+  // Doctors directory: only admin and receptionist (nurses/doctors don't need it in nav)
+  '/doctors': ['HOSPITAL_ADMIN', 'RECEPTIONIST'] as Role[],
   '/departments': ROLE_GROUPS.ADMIN_ONLY,
   '/staff': ROLE_GROUPS.ADMIN_ONLY,
-  '/appointments': ROLE_GROUPS.APPOINTMENTS,
+  // Appointments nav: receptionist + billing + admin only (nurse=9, doctor=11)
+  '/appointments': ['HOSPITAL_ADMIN', 'RECEPTIONIST', 'BILLING_STAFF'] as Role[],
   '/opd': ROLE_GROUPS.CLINICAL,
   '/ipd': ROLE_GROUPS.IPD_ADMIT,
   '/billing': ROLE_GROUPS.BILLING,
